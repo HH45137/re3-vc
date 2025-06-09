@@ -25,6 +25,9 @@ jobs:
       - name: Run premake5
         run: ./premake5Linux --with-librw gmake2 --no-git-hash
 
+      - name: Update submodules
+        run: git submodule update --init --recursive
+
       - name: Build debug project
         run: |
           cd build
