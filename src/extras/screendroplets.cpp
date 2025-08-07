@@ -63,11 +63,25 @@ static rw::gl3::Shader *screenDroplet;
 
 // platform specific
 static void
-openim2d_uv2(void) {};
+openim2d_uv2(void)
+#if defined(RW_GL1)
+{}
+#endif
+;
 static void
-closeim2d_uv2(void) {};
+closeim2d_uv2(void)
+#if defined(RW_GL1)
+{
+}
+#endif
+;
 static void
-RenderIndexedPrimitive_UV2(RwPrimitiveType primType, Im2DVertexUV2 *vertices, RwInt32 numVertices, RwImVertexIndex *indices, RwInt32 numIndices) {};
+RenderIndexedPrimitive_UV2(RwPrimitiveType primType, Im2DVertexUV2 *vertices, RwInt32 numVertices, RwImVertexIndex *indices, RwInt32 numIndices)
+#if defined(RW_GL1)
+{
+}
+#endif
+;
 
 static Im2DVertexUV2 VertexBuffer[TEMPBUFFERVERTSIZE];
 
