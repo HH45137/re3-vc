@@ -5132,20 +5132,20 @@ CMenuManager::ProcessButtonPresses(void)
 						ControlsManager.MakeControllerActionsBlank();
 						ControlsManager.InitDefaultControlConfiguration();
 						ControlsManager.InitDefaultControlConfigMouse(MousePointerStateHelper.GetMouseSetUp());
-#if !defined RW_GL3
-						if (AllValidWinJoys.m_aJoys[JOYSTICK1].m_bInitialised) {
-							DIDEVCAPS devCaps;
-							devCaps.dwSize = sizeof(DIDEVCAPS);
-							PSGLOBAL(joy1)->GetCapabilities(&devCaps);
-							ControlsManager.InitDefaultControlConfigJoyPad(devCaps.dwButtons);
-						}
-#else
-						if (PSGLOBAL(joy1id) != -1 && glfwJoystickPresent(PSGLOBAL(joy1id))) {
-							int count;
-							glfwGetJoystickButtons(PSGLOBAL(joy1id), &count);
-							ControlsManager.InitDefaultControlConfigJoyPad(count);
-						}
-#endif
+//#if !defined RW_GL3
+//						if (AllValidWinJoys.m_aJoys[JOYSTICK1].m_bInitialised) {
+//							DIDEVCAPS devCaps;
+//							devCaps.dwSize = sizeof(DIDEVCAPS);
+//							PSGLOBAL(joy1)->GetCapabilities(&devCaps);
+//							ControlsManager.InitDefaultControlConfigJoyPad(devCaps.dwButtons);
+//						}
+//#else
+//						if (PSGLOBAL(joy1id) != -1 && glfwJoystickPresent(PSGLOBAL(joy1id))) {
+//							int count;
+//							glfwGetJoystickButtons(PSGLOBAL(joy1id), &count);
+//							ControlsManager.InitDefaultControlConfigJoyPad(count);
+//						}
+//#endif
 						m_ControlMethod = CONTROL_STANDARD;
 #ifdef FIX_BUGS
 						MousePointerStateHelper.bInvertVertically = true;

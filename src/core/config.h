@@ -325,20 +325,20 @@ enum Config {
 //#define PC_PARTICLE
 //#define PS2_ALTERNATIVE_CARSPLASH // unused on PS2
 
-// Pad
-#if !defined(RW_GL3) && defined(_WIN32)
-#define XINPUT
-#endif
-#if defined XINPUT || (defined RW_GL3 && !defined LIBRW_SDL2 && !defined GTA_HANDHELD)
-#define DETECT_JOYSTICK_MENU // Then we'll expect user to enter Controller->Detect joysticks if his joystick isn't detected at the start.
-#endif
-#define DETECT_PAD_INPUT_SWITCH // Adds automatic switch of pad related stuff between controller and kb/m
-#define KANGAROO_CHEAT
-#define ALLCARSHELI_CHEAT
-#define ALT_DODO_CHEAT
-#define REGISTER_START_BUTTON
-#define BIND_VEHICLE_FIREWEAPON // Adds ability to rebind fire key for 'in vehicle' controls
-#define BUTTON_ICONS // use textures to show controller buttons
+//// Pad
+//#if !defined(RW_GL3) && defined(_WIN32)
+//#define XINPUT
+//#endif
+//#if defined XINPUT || (defined RW_GL3 && !defined LIBRW_SDL2 && !defined GTA_HANDHELD)
+//#define DETECT_JOYSTICK_MENU // Then we'll expect user to enter Controller->Detect joysticks if his joystick isn't detected at the start.
+//#endif
+//#define DETECT_PAD_INPUT_SWITCH // Adds automatic switch of pad related stuff between controller and kb/m
+//#define KANGAROO_CHEAT
+//#define ALLCARSHELI_CHEAT
+//#define ALT_DODO_CHEAT
+//#define REGISTER_START_BUTTON
+//#define BIND_VEHICLE_FIREWEAPON // Adds ability to rebind fire key for 'in vehicle' controls
+//#define BUTTON_ICONS // use textures to show controller buttons
 
 // Hud, frontend and radar
 //#define PS2_HUD

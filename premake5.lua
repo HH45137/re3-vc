@@ -92,6 +92,7 @@ workspace "re3"
 			"win-x86-librw_gl3_glfw-oal",
 			"win-amd64-librw_d3d9-oal",
 			"win-amd64-librw_gl3_glfw-oal",
+			"win-amd64-librw_gl1_glfw-oal",
 		}
 
 	filter { "system:linux" }
@@ -171,10 +172,19 @@ workspace "re3"
 			libdirs { path.join(Librw, "lib/%{getsys(cfg.system)}-%{getarch(cfg.architecture)}-gl3/%{cfg.buildcfg}") }
 		end
 
+	filter "platforms:*librw_gl1_glfw*"
+		defines { "RW_GL1" }
+		if(not _OPTIONS["with-librw"]) then
+			libdirs { path.join(Librw, "lib/%{getsys(cfg.system)}-%{getarch(cfg.architecture)}-gl1/%{cfg.buildcfg}") }
+		end
+
 	filter "platforms:*x86-librw_gl3_glfw*"
 		includedirs { path.join(_OPTIONS["glfwdir32"], "include") }
 
 	filter "platforms:*amd64-librw_gl3_glfw*"
+		includedirs { path.join(_OPTIONS["glfwdir64"], "include") }
+
+	filter "platforms:*amd64-librw_gl1_glfw*"
 		includedirs { path.join(_OPTIONS["glfwdir64"], "include") }
 
 	filter  {}
@@ -202,6 +212,7 @@ project "librw"
 	files { path.join(Librw, "src/*.*") }
 	files { path.join(Librw, "src/*/*.*") }
 	files { path.join(Librw, "src/gl/*/*.*") }
+	files { path.join(Librw, "src/gl1/*/*.*") }
 
 	filter { "platforms:*x86*" }
 		architecture "x86"
@@ -449,6 +460,10 @@ project "re3"
 		links { "opengl32", "glfw3" }
 
 	filter "platforms:win-amd64*gl3_glfw*"
+		libdirs { path.join(_OPTIONS["glfwdir64"], "lib-" .. string.gsub(_ACTION or '', "vs", "vc")) }
+		links { "opengl32", "glfw3" }
+
+	filter "platforms:win-amd64*gl1_glfw*"
 		libdirs { path.join(_OPTIONS["glfwdir64"], "lib-" .. string.gsub(_ACTION or '', "vs", "vc")) }
 		links { "opengl32", "glfw3" }
 

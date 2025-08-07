@@ -103,7 +103,7 @@ class CControllerState;
 
 #define ACTIONNAME_LENGTH 40
 
-#ifdef RW_GL3
+#if defined RW_GL3 || defined RW_GL1
 struct GlfwJoyState {
 	int8 id;
 	bool isGamepad;
@@ -129,7 +129,7 @@ public:
 	};
 
 	bool                  m_bFirstCapture;
-#if defined RW_GL3
+#if defined RW_GL3 || defined RW_GL1
 	GlfwJoyState           m_OldState;
 	GlfwJoyState           m_NewState;
 #else
