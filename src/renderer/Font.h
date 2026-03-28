@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Sprite2d.h"
+#include "Game.h"
 
 void AsciiToUnicode(const char *src, wchar *dst);
 void UnicodeStrcpy(wchar *dst, const wchar *src);
@@ -211,7 +212,7 @@ public:
 	// japanese stuff
 	static bool IsAnsiCharacter(wchar* s);
 	static bool IsJapanesePunctuation(wchar* str);
-	static bool IsJapanese() { return LanguageSet == FONT_LANGSET_JAPANESE; }
+	static bool IsJapanese() { return LanguageSet == FONT_LANGSET_JAPANESE && !CGame::chineseGame; }
 	static bool IsJapaneseFont() { return IsJapanese() && (Details.style == FONT_JAPANESE);  }
 #endif
 };

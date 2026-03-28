@@ -41,6 +41,9 @@ CText::Load(void)
 	case CMenuManager::LANGUAGE_AMERICAN:
 		sprintf(filename, "AMERICAN.GXT");
 		break;
+	case CMenuManager::LANGUAGE_CHINESE:
+		sprintf(filename, "CHINESE2.GXT");
+		break;
 	case CMenuManager::LANGUAGE_FRENCH:
 		sprintf(filename, "FRENCH.GXT");
 		break;
@@ -244,6 +247,9 @@ CText::LoadMissionText(char *MissionTableName)
 	switch (FrontEndMenuManager.m_PrefsLanguage) {
 	case CMenuManager::LANGUAGE_AMERICAN:
 		sprintf(filename, "AMERICAN.GXT");
+		break;
+	case CMenuManager::LANGUAGE_CHINESE:
+		sprintf(filename, "CHINESE2.GXT");
 		break;
 	case CMenuManager::LANGUAGE_FRENCH:
 		sprintf(filename, "FRENCH.GXT");

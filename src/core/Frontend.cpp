@@ -2970,6 +2970,7 @@ CMenuManager::InitialiseChangedLanguageSettings()
 		if (gGameState > GS_INIT_ONCE)
 #endif
 		CTimer::Update();
+		CGame::chineseGame = false;
 		CGame::frenchGame = false;
 		CGame::germanGame = false;
 #ifdef MORE_LANGUAGES
@@ -2992,6 +2993,9 @@ CMenuManager::InitialiseChangedLanguageSettings()
 #endif
 
 		switch (m_PrefsLanguage) {
+		case LANGUAGE_CHINESE:
+			CGame::chineseGame = true;
+			break;
 		case LANGUAGE_FRENCH:
 			CGame::frenchGame = true;
 			break;
@@ -4730,6 +4734,12 @@ CMenuManager::ProcessUserInput(uint8 goDown, uint8 goUp, uint8 optionSelected, u
 				break;
 			case MENUACTION_LANG_ENG:
 				m_PrefsLanguage = LANGUAGE_AMERICAN;
+				m_bFrontEnd_ReloadObrTxtGxt = true;
+				InitialiseChangedLanguageSettings();
+				SaveSettings();
+				break;
+			case MENUACTION_LANG_CHN:
+				m_PrefsLanguage = LANGUAGE_CHINESE;
 				m_bFrontEnd_ReloadObrTxtGxt = true;
 				InitialiseChangedLanguageSettings();
 				SaveSettings();

@@ -1065,6 +1065,7 @@ CStats::ConstructStatLine(int rowIdx)
 
 	switch (FrontEndMenuManager.m_PrefsLanguage) {
 		case CMenuManager::LANGUAGE_AMERICAN:
+		case CMenuManager::LANGUAGE_CHINESE:
 #ifndef USE_MEASUREMENTS_IN_METERS
 			STAT_LINE_1(float, "FEST_DF", DistanceTravelledOnFoot * MILES_IN_METER, 1);
 			STAT_LINE_1(float, "FEST_DC", DistanceTravelledByCar * MILES_IN_METER, 1);

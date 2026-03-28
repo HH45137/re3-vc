@@ -101,6 +101,7 @@ int32 CGame::currArea;
 bool CGame::bDemoMode = true;
 bool CGame::nastyGame = true;
 bool CGame::frenchGame;
+bool CGame::chineseGame;
 bool CGame::germanGame;
 bool CGame::noProstitutes;
 bool CGame::playingIntro;

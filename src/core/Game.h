@@ -39,6 +39,7 @@ public:
 	static bool bDemoMode;
 	static bool nastyGame;
 	static bool frenchGame;
+	static bool chineseGame;
 	static bool germanGame;
 #ifdef MORE_LANGUAGES
 	static bool russianGame;
