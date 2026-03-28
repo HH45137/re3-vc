@@ -361,3 +361,5 @@ codewarrior/Release/
 codewarrior/Debug/
 
 src/extras/GitSHA1.cpp
+/gamefiles/TEXT/chinese2
+gamefiles/TEXT/chinese2.txt
