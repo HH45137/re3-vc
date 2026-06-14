@@ -347,6 +347,7 @@ project "reVC"
 				"vendor/steamaudio/include",
 				"vendor/miniaudio"
 			}
+			files { "vendor/miniaudio/miniaudio.c" }
 			libdirs { "vendor/steamaudio/lib/windows-x64" }
 			links { "phonon" }
 			defines { "USE_STEAMAUDIO" }
