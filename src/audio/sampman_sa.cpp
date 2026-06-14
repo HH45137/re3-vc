@@ -56,7 +56,7 @@ cSampleManager::SetNum3DProvidersAvailable(uint32 num) {}
 char *
 cSampleManager::Get3DProviderName(uint8 id)
 {
-	static char name[64] = "NULL";
+	static char name[64] = "Steam Audio";
 	return name;
 }
 
