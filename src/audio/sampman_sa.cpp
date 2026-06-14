@@ -25,6 +25,9 @@ InitSteamAudio()
 	debug("Initial SteamAudio success.\n");
 	return true;
 }
+
+static void
+ShutdownSteamAudio() { debug("Shutdown SteamAudio.\n"); }
 }
 
 cSampleManager SampleManager;
@@ -88,7 +91,7 @@ cSampleManager::Initialise(void)
 }
 
 void
-cSampleManager::Terminate(void) {}
+cSampleManager::Terminate(void) { SteamAudio::ShutdownSteamAudio(); }
 
 bool8
 cSampleManager::CheckForAnAudioFileOnCD(void) { return TRUE; }
