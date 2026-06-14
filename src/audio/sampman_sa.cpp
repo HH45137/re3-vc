@@ -131,22 +131,30 @@ cSampleManager::UpdateEffectsVolume(void)
 }
 
 void
-cSampleManager::SetEffectsMasterVolume(uint8 nVolume) {}
+cSampleManager::SetEffectsMasterVolume(uint8 nVolume)
+{
+	m_nEffectsVolume = nVolume;
+	UpdateEffectsVolume();
+}
 
 void
-cSampleManager::SetMusicMasterVolume(uint8 nVolume) {}
+cSampleManager::SetMusicMasterVolume(uint8 nVolume) { m_nMusicVolume = nVolume; }
 
 void
-cSampleManager::SetMP3BoostVolume(uint8 nVolume) {}
+cSampleManager::SetMP3BoostVolume(uint8 nVolume) { m_nMP3BoostVolume = nVolume; }
 
 void
-cSampleManager::SetEffectsFadeVolume(uint8 nVolume) {}
+cSampleManager::SetEffectsFadeVolume(uint8 nVolume)
+{
+	m_nEffectsFadeVolume = nVolume;
+	UpdateEffectsVolume();
+}
 
 void
-cSampleManager::SetMusicFadeVolume(uint8 nVolume) {}
+cSampleManager::SetMusicFadeVolume(uint8 nVolume) { m_nMusicFadeVolume = nVolume; }
 
 void
-cSampleManager::SetMonoMode(bool8 nMode) {}
+cSampleManager::SetMonoMode(bool8 nMode) { m_nMonoMode = nMode; }
 
 bool8
 cSampleManager::LoadSampleBank(uint8 nBank)
