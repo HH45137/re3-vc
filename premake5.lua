@@ -42,6 +42,11 @@ newoption {
 	description = "Don't print full paths into binary"
 }
 
+newoption {
+	trigger     = "with-steamaudio",
+	description = "3D Sound"
+}
+
 require("autoconf")
 
 if(_OPTIONS["with-librw"]) then
@@ -92,6 +97,7 @@ workspace "reVC"
 			"win-x86-librw_gl3_glfw-oal",
 			"win-amd64-librw_d3d9-oal",
 			"win-amd64-librw_gl3_glfw-oal",
+			"win-amd64-librw_gl3_glfw-sa",
 		}
 
 	filter { "system:linux" }
@@ -334,6 +340,14 @@ project "reVC"
 
 	filter "platforms:*oal"
 		defines { "AUDIO_OAL" }
+
+	if(_OPTIONS["with-steamaudio"]) then
+		filter "platforms:win-amd64*sa"
+			includedirs { "vendor/steamaudio/include" }
+			libdirs { "vendor/steamaudio/lib/windows-x64" }
+			links { "phonon" }
+			defines { "USE_STEAMAUDIO" }
+	end
 
 	filter {}
 	if(os.getenv("GTA_VC_RE_DIR")) then
