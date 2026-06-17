@@ -3,74 +3,13 @@
 #include "sampman.h"
 #include "AudioManager.h"
 
-#define STEAMAUDIO_BUILDING_CORE
-#include "MusicManager.h"
-#include "crossplatform.h"
-#include "phonon_interfaces.h"
-
-#include <miniaudio.h>
-
-namespace SteamAudio
-{
-struct CChannel
-{
-	void Start() {}
-	void Stop() {}
-	bool IsUsed() { return false; }
-	void SetVolume(uint8 vol) {}
-	void Reset() {}
-	bool HasSource() { return true; }
-	void SetSampleData(void *data, size_t dataSize, int32 freq) {}
-	void SetLoopPoints(int start, int end) {}
-	void SetPitch(float pitch) {}
-	void SetPosition(float x, float y, float z) {}
-};
-
-static IPLContextSettings contextSettings{};
-static IPLContext context = nullptr;
-
-static bool8
-InitSteamAudio()
-{
-	contextSettings.version = STEAMAUDIO_VERSION;
-
-	IPLerror errorCode = iplContextCreate(&contextSettings, &context);
-	if(errorCode) {
-		debug("Initial SteamAudio fatal!\n");
-		return false;
-	}
-
-	debug("Initial SteamAudio success.\n");
-	return true;
-}
-
-static void
-ShutdownSteamAudio() { debug("Shutdown SteamAudio.\n"); }
-}
-
-FILE *fpSampleDataHandle;
-FILE *fpSampleDescHandle;
-int8 gBankLoaded[MAX_SFX_BANKS];
-int32 nSampleBankDiscStartOffset[MAX_SFX_BANKS];
-int32 nSampleBankSize[MAX_SFX_BANKS];
-uintptr nSampleBankMemoryStartAddress[MAX_SFX_BANKS];
-int32 _nSampleDataEndOffset;
-int32 nPedSlotSfx[MAX_PEDSFX];
-int32 nPedSlotSfxAddr[MAX_PEDSFX];
-uint8 nCurrentPedSlot;
-#ifdef FIX_BUGS
-uint32 gPlayerTalkSfx = UINT32_MAX;
-void *gPlayerTalkData = 0;
-#endif
-SteamAudio::CChannel aChannel[NUM_CHANNELS];
-uint8 nChannelVolume[NUM_CHANNELS];
 cSampleManager SampleManager;
 bool8 _bSampmanInitialised = FALSE;
+
 uint32 BankStartOffset[MAX_SFX_BANKS];
 uint32 nNumMP3s;
-bool8 nStreamLoopedFlag[MAX_STREAMS];
 
-cSampleManager::cSampleManager(void) {}
+cSampleManager::cSampleManager(void) { ; }
 
 cSampleManager::~cSampleManager(void) {}
 
@@ -85,12 +24,12 @@ uint32
 cSampleManager::GetNum3DProvidersAvailable() { return 1; }
 
 void
-cSampleManager::SetNum3DProvidersAvailable(uint32 num) { m_nNumberOfProviders = num; }
+cSampleManager::SetNum3DProvidersAvailable(uint32 num) {}
 
 char *
 cSampleManager::Get3DProviderName(uint8 id)
 {
-	static char name[64] = "Steam Audio";
+	static char name[64] = "RTAudio";
 	return name;
 }
 
@@ -101,7 +40,7 @@ int8
 cSampleManager::GetCurrent3DProviderIndex(void) { return 0; }
 
 int8
-cSampleManager::SetCurrent3DProvider(uint8 nProvider) { return nProvider; }
+cSampleManager::SetCurrent3DProvider(uint8 nProvider) { return 0; }
 #endif
 
 bool8
@@ -115,77 +54,10 @@ void
 cSampleManager::ReacquireDigitalHandle(void) {}
 
 bool8
-cSampleManager::Initialise(void)
-{
-	if(_bSampmanInitialised) { return TRUE; }
-
-	{
-		for(int32 i = 0; i < TOTAL_AUDIO_SAMPLES; i++) {
-			m_aSamples[i].nOffset = 0;
-			m_aSamples[i].nSize = 0;
-			m_aSamples[i].nFrequency = 22050;
-			m_aSamples[i].nLoopStart = 0;
-			m_aSamples[i].nLoopEnd = -1;
-		}
-
-		m_nEffectsVolume = MAX_VOLUME;
-		m_nMusicVolume = MAX_VOLUME;
-		m_nEffectsFadeVolume = MAX_VOLUME;
-		m_nMusicFadeVolume = MAX_VOLUME;
-
-		m_nMonoMode = 0;
-
-		fpSampleDescHandle = NULL;
-		fpSampleDataHandle = NULL;
-
-		for(int32 i = 0; i < MAX_SFX_BANKS; i++) {
-			gBankLoaded[i] = LOADING_STATUS_NOT_LOADED;
-			nSampleBankDiscStartOffset[i] = 0;
-			nSampleBankSize[i] = 0;
-			nSampleBankMemoryStartAddress[i] = 0;
-		}
-
-		for(int32 i = 0; i < MAX_PEDSFX; i++) {
-			nPedSlotSfx[i] = NO_SAMPLE;
-			nPedSlotSfxAddr[i] = 0;
-		}
-
-		nCurrentPedSlot = 0;
-
-		for(int32 i = 0; i < NUM_CHANNELS; i++) { nChannelVolume[i] = 0; }
-	}
-
-	{
-		if(!InitialiseSampleBanks()) {
-			Terminate();
-			return FALSE;
-		}
-
-		nSampleBankMemoryStartAddress[SFX_BANK_0] = (uintptr)malloc(nSampleBankSize[SFX_BANK_0]);
-		ASSERT(nSampleBankMemoryStartAddress[SFX_BANK_0] != 0);
-
-		if(nSampleBankMemoryStartAddress[SFX_BANK_0] == 0) {
-			Terminate();
-			return FALSE;
-		}
-
-		nSampleBankMemoryStartAddress[SFX_BANK_PED_COMMENTS] = (uintptr)malloc(PED_BLOCKSIZE * MAX_PEDSFX);
-		ASSERT(nSampleBankMemoryStartAddress[SFX_BANK_PED_COMMENTS] != 0);
-
-		if(!LoadSampleBank(SFX_BANK_0)) {
-			Terminate();
-			return FALSE;
-		}
-	}
-
-	if(!SteamAudio::InitSteamAudio()) { return FALSE; }
-
-	_bSampmanInitialised = TRUE;
-	return TRUE;
-}
+cSampleManager::Initialise(void) { return TRUE; }
 
 void
-cSampleManager::Terminate(void) { SteamAudio::ShutdownSteamAudio(); }
+cSampleManager::Terminate(void) {}
 
 bool8
 cSampleManager::CheckForAnAudioFileOnCD(void) { return TRUE; }
@@ -194,69 +66,37 @@ char
 cSampleManager::GetCDAudioDriveLetter(void) { return '\0'; }
 
 void
-cSampleManager::UpdateEffectsVolume(void)
-{
-	if(_bSampmanInitialised) {
-		for(int32 i = 0; i < NUM_CHANNELS; i++) {
-			if(GetChannelUsedFlag(i)) {
-				if(nChannelVolume[i] != 0) { aChannel[i].SetVolume(m_nEffectsFadeVolume * nChannelVolume[i] * m_nEffectsVolume >> 14); }
-			}
-		}
-	}
-}
+cSampleManager::UpdateEffectsVolume(void) {}
 
 void
-cSampleManager::SetEffectsMasterVolume(uint8 nVolume)
-{
-	m_nEffectsVolume = nVolume;
-	UpdateEffectsVolume();
-}
+cSampleManager::SetEffectsMasterVolume(uint8 nVolume) {}
 
 void
-cSampleManager::SetMusicMasterVolume(uint8 nVolume) { m_nMusicVolume = nVolume; }
+cSampleManager::SetMusicMasterVolume(uint8 nVolume) {}
 
 void
-cSampleManager::SetMP3BoostVolume(uint8 nVolume) { m_nMP3BoostVolume = nVolume; }
+cSampleManager::SetMP3BoostVolume(uint8 nVolume) {}
 
 void
-cSampleManager::SetEffectsFadeVolume(uint8 nVolume)
-{
-	m_nEffectsFadeVolume = nVolume;
-	UpdateEffectsVolume();
-}
+cSampleManager::SetEffectsFadeVolume(uint8 nVolume) {}
 
 void
-cSampleManager::SetMusicFadeVolume(uint8 nVolume) { m_nMusicFadeVolume = nVolume; }
+cSampleManager::SetMusicFadeVolume(uint8 nVolume) {}
 
 void
-cSampleManager::SetMonoMode(bool8 nMode) { m_nMonoMode = nMode; }
+cSampleManager::SetMonoMode(bool8 nMode) {}
 
 bool8
 cSampleManager::LoadSampleBank(uint8 nBank)
 {
 	ASSERT(nBank < MAX_SFX_BANKS);
-
-	if(CTimer::GetIsCodePaused()) return FALSE;
-
-	if(MusicManager.IsInitialised()
-	   && MusicManager.GetMusicMode() == MUSICMODE_CUTSCENE
-	   && nBank != SFX_BANK_0) { return FALSE; }
-
-	if(fseek(fpSampleDataHandle, nSampleBankDiscStartOffset[nBank], SEEK_SET) != 0) return FALSE;
-
-	if(fread((void *)nSampleBankMemoryStartAddress[nBank], 1, nSampleBankSize[nBank], fpSampleDataHandle) != nSampleBankSize[nBank]) return FALSE;
-
-	gBankLoaded[nBank] = LOADING_STATUS_LOADED;
-
-	return TRUE;
+	return FALSE;
 }
 
 void
 cSampleManager::UnloadSampleBank(uint8 nBank)
 {
 	ASSERT(nBank < MAX_SFX_BANKS);
-
-	gBankLoaded[nBank] = LOADING_STATUS_NOT_LOADED;
 }
 
 int8
@@ -288,75 +128,22 @@ cSampleManager::IsPedCommentLoaded(uint32 nComment)
 {
 	ASSERT(nComment < TOTAL_AUDIO_SAMPLES);
 
-	for(int32 i = 0; i < _TODOCONST(3); i++) {
-#ifdef FIX_BUGS
-		int8 slot = (int8)nCurrentPedSlot - i - 1;
-		if(slot < 0) slot += ARRAY_SIZE(nPedSlotSfx);
-#else
-		uint8 slot = nCurrentPedSlot - i - 1;
-#endif
-		if(nComment == nPedSlotSfx[slot]) return LOADING_STATUS_LOADED;
-	}
-
 	return LOADING_STATUS_NOT_LOADED;
 }
 
 
 int32
-cSampleManager::_GetPedCommentSlot(uint32 nComment)
-{
-	for(int32 i = 0; i < _TODOCONST(3); i++) {
-#ifdef FIX_BUGS
-		int8 slot = (int8)nCurrentPedSlot - i - 1;
-		if(slot < 0) slot += ARRAY_SIZE(nPedSlotSfx);
-#else
-		uint8 slot = nCurrentPedSlot - i - 1;
-#endif
-		if(nComment == nPedSlotSfx[slot]) return slot;
-	}
-
-	return -1;
-}
+cSampleManager::_GetPedCommentSlot(uint32 nComment) { return -1; }
 
 bool8
 cSampleManager::LoadPedComment(uint32 nComment)
 {
 	ASSERT(nComment < TOTAL_AUDIO_SAMPLES);
-
-	if(CTimer::GetIsCodePaused()) return FALSE;
-
-	// no talking peds during cutsenes or the game end
-	if(MusicManager.IsInitialised()) {
-		switch(MusicManager.GetMusicMode()) {
-		case MUSICMODE_CUTSCENE: {
-			return FALSE;
-			break;
-		}
-		}
-	}
-
-	if(fseek(fpSampleDataHandle, m_aSamples[nComment].nOffset, SEEK_SET) != 0) return FALSE;
-
-	if(fread((void *)(nSampleBankMemoryStartAddress[SFX_BANK_PED_COMMENTS] + PED_BLOCKSIZE * nCurrentPedSlot), 1, m_aSamples[nComment].nSize,
-	         fpSampleDataHandle) != m_aSamples[nComment].nSize)
-		return FALSE;
-
-	nPedSlotSfx[nCurrentPedSlot] = nComment;
-
-	if(++nCurrentPedSlot >= MAX_PEDSFX) nCurrentPedSlot = 0;
-
-	return TRUE;
+	return FALSE;
 }
 
 int32
-cSampleManager::GetBankContainingSound(uint32 offset)
-{
-	if(offset >= BankStartOffset[SFX_BANK_PED_COMMENTS]) return SFX_BANK_PED_COMMENTS;
-
-	if(offset >= BankStartOffset[SFX_BANK_0]) return SFX_BANK_0;
-
-	return INVALID_SFX_BANK;
-}
+cSampleManager::GetBankContainingSound(uint32 offset) { return INVALID_SFX_BANK; }
 
 uint32
 cSampleManager::GetSampleBaseFrequency(uint32 nSample)
@@ -398,51 +185,7 @@ cSampleManager::SetChannelReverbFlag(uint32 nChannel, bool8 nReverbFlag)
 bool8
 cSampleManager::InitialiseChannel(uint32 nChannel, uint32 nSfx, uint8 nBank)
 {
-	ASSERT(nChannel < NUM_CHANNELS);
-
-	uintptr addr;
-
-	if(nSfx < SAMPLEBANK_MAX) {
-		if(!IsSampleBankLoaded(nBank)) return FALSE;
-
-		addr = nSampleBankMemoryStartAddress[nBank] + m_aSamples[nSfx].nOffset - m_aSamples[BankStartOffset[nBank]].nOffset;
-	}
-#ifdef FIX_BUGS
-	else if(nSfx >= PLAYER_COMMENTS_START && nSfx <= PLAYER_COMMENTS_END) {
-		if(!IsMissionAudioLoaded(MISSION_AUDIO_PLAYER_COMMENT, nSfx)) return FALSE;
-
-		addr = (uintptr)gPlayerTalkData;
-	}
-#endif
-	else {
-		int32 i;
-		for(i = 0; i < _TODOCONST(3); i++) {
-			int32 slot = nCurrentPedSlot - i - 1;
-#ifdef FIX_BUGS
-			if(slot < 0) slot += ARRAY_SIZE(nPedSlotSfx);
-#endif
-			if(nSfx == nPedSlotSfx[slot]) {
-				addr = (nSampleBankMemoryStartAddress[SFX_BANK_PED_COMMENTS] + PED_BLOCKSIZE * slot);
-				break;
-			}
-		}
-
-		if(i == _TODOCONST(3)) return FALSE;
-	}
-
-	if(GetChannelUsedFlag(nChannel)) {
-		TRACE("Stopping channel %d - really!!!", nChannel);
-		StopChannel(nChannel);
-	}
-
-	aChannel[nChannel].Reset();
-	if(aChannel[nChannel].HasSource()) {
-		aChannel[nChannel].SetSampleData((void *)addr, m_aSamples[nSfx].nSize, m_aSamples[nSfx].nFrequency);
-		aChannel[nChannel].SetLoopPoints(0, -1);
-		aChannel[nChannel].SetPitch(1.0f);
-		return TRUE;
-	}
-
+	ASSERT(nChannel < MAXCHANNELS+MAX2DCHANNELS);
 	return FALSE;
 }
 
@@ -451,19 +194,7 @@ void
 cSampleManager::SetChannelEmittingVolume(uint32 nChannel, uint32 nVolume)
 {
 	ASSERT(nChannel < MAXCHANNELS);
-
-	uint32 vol = nVolume;
-	if(vol > MAX_VOLUME) vol = MAX_VOLUME;
-
-	nChannelVolume[nChannel] = vol;
-
-	if(MusicManager.GetMusicMode() == MUSICMODE_CUTSCENE) {
-		if(MusicManager.GetCurrentTrack() == STREAMED_SOUND_CUTSCENE_FINALE) nChannelVolume[nChannel] = 0;
-		else nChannelVolume[nChannel] >>= 2;
-	}
-
-	// no idea, does this one looks like a bug or it's SetChannelVolume ?
-	aChannel[nChannel].SetVolume(m_nEffectsFadeVolume * nChannelVolume[nChannel] * m_nEffectsVolume >> 14);
+	ASSERT(nChannel < MAXCHANNELS+MAX2DCHANNELS);
 }
 
 void
@@ -471,8 +202,6 @@ cSampleManager::SetChannel3DPosition(uint32 nChannel, float fX, float fY, float 
 {
 	ASSERT(nChannel < MAXCHANNELS);
 	ASSERT(nChannel < MAXCHANNELS+MAX2DCHANNELS);
-
-	aChannel[nChannel].SetPosition(-fX, fY, fZ);
 }
 
 void
@@ -518,25 +247,21 @@ cSampleManager::SetChannelLoopCount(uint32 nChannel, uint32 nLoopCount)
 bool8
 cSampleManager::GetChannelUsedFlag(uint32 nChannel)
 {
-	ASSERT(nChannel < NUM_CHANNELS);
+	ASSERT(nChannel < MAXCHANNELS+MAX2DCHANNELS);
 
-	return aChannel[nChannel].IsUsed();
+	return FALSE;
 }
 
 void
 cSampleManager::StartChannel(uint32 nChannel)
 {
-	ASSERT(nChannel < NUM_CHANNELS);
-
-	aChannel[nChannel].Start();
+	ASSERT(nChannel < MAXCHANNELS+MAX2DCHANNELS);
 }
 
 void
 cSampleManager::StopChannel(uint32 nChannel)
 {
-	ASSERT(nChannel < NUM_CHANNELS);
-
-	aChannel[nChannel].Stop();
+	ASSERT(nChannel < MAXCHANNELS+MAX2DCHANNELS);
 }
 
 void
@@ -602,59 +327,12 @@ cSampleManager::IsStreamPlaying(uint8 nStream)
 }
 
 bool8
-cSampleManager::InitialiseSampleBanks(void)
-{
-	char SampleBankDescFilename[] = "audio/sfx.SDT";
-	char SampleBankDataFilename[] = "audio/sfx.RAW";
-
-	int32 nBank = SFX_BANK_0;
-
-	fpSampleDescHandle = fcaseopen(SampleBankDescFilename, "rb");
-	if(fpSampleDescHandle == NULL) return FALSE;
-
-	fpSampleDataHandle = fcaseopen(SampleBankDataFilename, "rb");
-	if(fpSampleDataHandle == NULL) {
-		fclose(fpSampleDescHandle);
-		fpSampleDescHandle = NULL;
-
-		return FALSE;
-	}
-
-	fseek(fpSampleDataHandle, 0, SEEK_END);
-	int32 _nSampleDataEndOffset = ftell(fpSampleDataHandle);
-	rewind(fpSampleDataHandle);
-
-	fread(m_aSamples, sizeof(tSample), TOTAL_AUDIO_SAMPLES, fpSampleDescHandle);
-
-	fclose(fpSampleDescHandle);
-	fpSampleDescHandle = NULL;
-
-	for(uint32 i = 0; i < TOTAL_AUDIO_SAMPLES; i++) {
-#ifdef FIX_BUGS
-		if(nBank >= MAX_SFX_BANKS) break;
-#endif
-		if(BankStartOffset[nBank] == BankStartOffset[SFX_BANK_0] + i) {
-			nSampleBankDiscStartOffset[nBank] = m_aSamples[i].nOffset;
-			nBank++;
-		}
-	}
-
-	nSampleBankSize[SFX_BANK_0] = nSampleBankDiscStartOffset[SFX_BANK_PED_COMMENTS] - nSampleBankDiscStartOffset[SFX_BANK_0];
-	nSampleBankSize[SFX_BANK_PED_COMMENTS] = _nSampleDataEndOffset - nSampleBankDiscStartOffset[SFX_BANK_PED_COMMENTS];
-
-	return TRUE;
-}
+cSampleManager::InitialiseSampleBanks(void) { return TRUE; }
 
 void
-cSampleManager::SetStreamedFileLoopFlag(bool8 nLoopFlag, uint8 nChannel) { nStreamLoopedFlag[nChannel] = nLoopFlag; }
+cSampleManager::SetStreamedFileLoopFlag(bool8 nLoopFlag, uint8 nChannel) {}
 
 int8
-cSampleManager::AutoDetect3DProviders()
-{
-	uint32 providerCount = GetNum3DProvidersAvailable();
-	if(providerCount > 0) { return 1; }
-
-	return -1;
-}
+cSampleManager::AutoDetect3DProviders() { return -1; }
 
 #endif
