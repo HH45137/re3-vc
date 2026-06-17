@@ -345,9 +345,10 @@ project "reVC"
 		filter "platforms:win-amd64*sa"
 			includedirs { 
 				"vendor/steamaudio/include",
-				"vendor/miniaudio"
+				"vendor/miniaudio",
+				"vendor/rtaudio"
 			}
-			files { "vendor/miniaudio/miniaudio.c" }
+			-- files { "vendor/miniaudio/miniaudio.c" }
 			libdirs { "vendor/steamaudio/lib/windows-x64" }
 			links { "phonon" }
 			defines { "USE_STEAMAUDIO" }

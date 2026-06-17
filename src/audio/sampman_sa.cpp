@@ -2,6 +2,7 @@
 #ifdef USE_STEAMAUDIO
 #include "sampman.h"
 #include "AudioManager.h"
+#include "RTAudio.h"
 
 cSampleManager SampleManager;
 bool8 _bSampmanInitialised = FALSE;
@@ -54,7 +55,13 @@ void
 cSampleManager::ReacquireDigitalHandle(void) {}
 
 bool8
-cSampleManager::Initialise(void) { return TRUE; }
+cSampleManager::Initialise(void)
+{
+	RTA::RTAudio sound;
+	sound.Initialize();
+	
+	return TRUE;
+}
 
 void
 cSampleManager::Terminate(void) {}
