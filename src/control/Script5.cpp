@@ -1387,6 +1387,9 @@ void CRunningScript::DoDeatharrestCheck()
 	if (CanAllowMissionReplay())
 		AllowMissionReplay = MISSION_RETRY_STAGE_WAIT_FOR_SCRIPT_TO_TERMINATE;
 #endif
+	if(m_nStackPointer == 0) {
+		return;
+	}
 	script_assert(m_nStackPointer > 0);
 	while (m_nStackPointer > 1)
 		--m_nStackPointer;
