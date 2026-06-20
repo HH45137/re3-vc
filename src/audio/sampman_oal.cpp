@@ -1,6 +1,6 @@
 //#define JUICY_OAL
 
-#ifdef AUDIO_OAL
+#if defined(AUDIO_OAL) && !defined(USE_STEAMAUDIO)
 #include <time.h>
 
 #include "eax.h"

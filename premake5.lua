@@ -97,7 +97,7 @@ workspace "reVC"
 			"win-x86-librw_gl3_glfw-oal",
 			"win-amd64-librw_d3d9-oal",
 			"win-amd64-librw_gl3_glfw-oal",
-			"win-amd64-librw_gl3_glfw-sa",
+			"win-amd64-librw_gl3_glfw-sa-oal",
 		}
 
 	filter { "system:linux" }
@@ -338,11 +338,8 @@ project "reVC"
 		defines { "AUDIO_OPUS" }
 	end
 
-	filter "platforms:*oal"
-		defines { "AUDIO_OAL" }
-
 	if(_OPTIONS["with-steamaudio"]) then
-		filter "platforms:win-amd64*sa"
+		filter "platforms:win-amd64*sa-oal"
 			includedirs { 
 				"vendor/steamaudio/include",
 				"vendor/miniaudio",
@@ -353,6 +350,9 @@ project "reVC"
 			links { "phonon" }
 			defines { "USE_STEAMAUDIO" }
 	end
+
+	filter "platforms:*oal"
+		defines { "AUDIO_OAL" }
 
 	filter {}
 	if(os.getenv("GTA_VC_RE_DIR")) then
