@@ -95,13 +95,11 @@ void CChannel::Init(uint32 _id, bool Is2D)
 			SA::InitFX();
 		}
 		
-		for (size_t i = 0; i < NUM_CHANNELS; i++) {
-			if (SA::sound_sources.size() >= SA::MAX_SOUND_SOURCE_NUM) {
-				SA::sound_sources.clear();
-			}
-			SA::SoundSource sound_source{};
-			SA::sound_sources.emplace(id, std::move(sound_source));
+		if (SA::sound_sources.size() >= SA::MAX_SOUND_SOURCE_NUM) {
+			SA::sound_sources.clear();
 		}
+		SA::SoundSource sound_source{};
+		SA::sound_sources.emplace(id, std::move(sound_source));
 #endif
 	
 		alSourcei(alSources[id], AL_SOURCE_RELATIVE, AL_TRUE);
@@ -162,7 +160,9 @@ void CChannel::Start()
 	
 		const int16_t* src = static_cast<const int16_t*>(Data);
 		size_t num_input_samples = DataSize / sizeof(int16_t);
-		std::vector<float> in_data(src, src + num_input_samples);
+		std::vector<float> in_data(num_input_samples);
+		for (size_t i = 0; i < num_input_samples; ++i)
+			in_data[i] = src[i] / 32768.0f;
 
 		float upsample_ratio = 48000.0f / Frequency;
 		size_t resampled_count = static_cast<size_t>(num_input_samples * upsample_ratio) + 1;
@@ -200,8 +200,8 @@ void CChannel::Start()
 				left  = output_stereo_buffer[idx * 2 + 0];
 				right = output_stereo_buffer[idx * 2 + 1];
 			}
-			out_data.push_back(static_cast<int16_t>(left));
-			out_data.push_back(static_cast<int16_t>(right));
+			out_data.push_back(static_cast<int16_t>(std::max(-32768.0f, std::min(32767.0f, left * 32767.0f))));
+			out_data.push_back(static_cast<int16_t>(std::max(-32768.0f, std::min(32767.0f, right * 32767.0f))));
 		}
 		free(output_stereo_buffer);
 	}
