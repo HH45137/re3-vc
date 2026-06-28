@@ -1,5 +1,7 @@
 #include "common.h"
 
+#include "../steamaudio.h"
+
 #ifdef AUDIO_OAL
 #include "channel.h"
 #include "sampman.h"

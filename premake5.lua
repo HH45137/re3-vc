@@ -341,11 +341,8 @@ project "reVC"
 	if(_OPTIONS["with-steamaudio"]) then
 		filter "platforms:win-amd64*sa-oal"
 			includedirs { 
-				"vendor/steamaudio/include",
-				"vendor/miniaudio",
-				"vendor/rtaudio"
+				"vendor/steamaudio/include"
 			}
-			-- files { "vendor/miniaudio/miniaudio.c" }
 			libdirs { "vendor/steamaudio/lib/windows-x64" }
 			links { "phonon" }
 			defines { "USE_STEAMAUDIO" }
