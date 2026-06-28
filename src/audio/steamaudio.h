@@ -6,6 +6,7 @@
 
 #ifdef USE_STEAMAUDIO
 #include <phonon.h>
+#include <cfloat>
 
 namespace SA
 {
@@ -33,6 +34,10 @@ namespace SA
             listener_position
         };
         
+        float gain = 1.0f;
+        float dist_min = 1.0f;
+        float dist_max = FLT_MAX;
+
         std::vector<float> mono_input_buffer{};
         float* data = nullptr;
         uint64_t total_frames = 0;
@@ -75,6 +80,7 @@ namespace SA
 
             IPLDistanceAttenuationModel dist_atten_model{};
             dist_atten_model.type = IPL_DISTANCEATTENUATIONTYPE_DEFAULT;
+            dist_atten_model.minDistance = dist_min;
             float distance_atten = iplDistanceAttenuationCalculate(
                 context, source_position, listener_position, &dist_atten_model);
 

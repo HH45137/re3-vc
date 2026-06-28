@@ -105,15 +105,22 @@ void CChannel::Init(uint32 _id, bool Is2D)
 #endif
 	
 		alSourcei(alSources[id], AL_SOURCE_RELATIVE, AL_TRUE);
+#ifdef USE_STEAMAUDIO
+		// Steam Audio handles all 3D spatialization; keep OpenAL centered.
+		alSource3f(alSources[id], AL_POSITION, 0.0f, 0.0f, 0.0f);
+		alSourcef(alSources[id], AL_GAIN, 1.0f);
+#else
 		if ( IsFXSupported() )
 			alSource3i(alSources[id], AL_AUXILIARY_SEND_FILTER, AL_EFFECTSLOT_NULL, 0, AL_FILTER_NULL);
+#endif
 		
 		if ( Is2D )
 		{
 			bIs2D = true;
+#ifndef USE_STEAMAUDIO
 			alSource3f(alSources[id], AL_POSITION, 0.0f, 0.0f, 0.0f);
 			alSourcef(alSources[id], AL_GAIN, 1.0f);
-			
+#endif
 #ifdef USE_STEAMAUDIO
 			SA::sound_sources[id].source_position = {0.0f, 0.0f, 0.0f};
 #endif
@@ -126,10 +133,12 @@ void CChannel::Term()
 	Stop();
 	if ( HasSource() )
 	{
+#ifndef USE_STEAMAUDIO
 		if ( IsFXSupported() )
 		{
 			alSource3i(alSources[id], AL_AUXILIARY_SEND_FILTER, AL_EFFECTSLOT_NULL, 0, AL_FILTER_NULL);
 		}
+#endif
 	
 #ifdef USE_STEAMAUDIO
 		SA::sound_sources.erase(id);
@@ -255,6 +264,9 @@ void CChannel::SetPitch(float pitch)
 void CChannel::SetGain(float gain)
 {
 	if ( !HasSource() ) return;
+#ifdef USE_STEAMAUDIO
+	SA::sound_sources[id].gain = gain;
+#endif
 	alSourcef(alSources[id], AL_GAIN, gain);
 }
 	
@@ -331,16 +343,29 @@ void CChannel::SetLoopPoints(ALint start, ALint end)
 void CChannel::SetPosition(float x, float y, float z)
 {
 	if ( !HasSource() ) return;
+#ifdef USE_STEAMAUDIO
+	SA::sound_sources[id].source_position = {
+		x,
+		y,
+		z
+	};
+#else
 	alSource3f(alSources[id], AL_POSITION, x, y, z);
+#endif
 }
 	
 void CChannel::SetDistances(float max, float min)
 {
 	if ( !HasSource() ) return;
+#ifdef USE_STEAMAUDIO
+	SA::sound_sources[id].dist_max = max;
+	SA::sound_sources[id].dist_min = min;
+#else
 	alSourcef   (alSources[id], AL_MAX_DISTANCE,       max);
 	alSourcef   (alSources[id], AL_REFERENCE_DISTANCE, min);
 	alSourcef   (alSources[id], AL_MAX_GAIN, 1.0f);
 	alSourcef   (alSources[id], AL_ROLLOFF_FACTOR, 1.0f);
+#endif
 }
 	
 void CChannel::SetPan(int32 pan)
@@ -359,6 +384,9 @@ void CChannel::ClearBuffer()
 
 void CChannel::SetReverbMix(ALuint slot, float mix)
 {
+#ifdef USE_STEAMAUDIO
+	return;
+#endif
 	if ( !IsFXSupported() ) return;
 	if ( !HasSource() ) return;
 	if ( alFilters[id] == AL_FILTER_NULL ) return;
@@ -370,6 +398,9 @@ void CChannel::SetReverbMix(ALuint slot, float mix)
 
 void CChannel::UpdateReverb(ALuint slot)
 {
+#ifdef USE_STEAMAUDIO
+	return;
+#endif
 	if ( !IsFXSupported() ) return;
 	if ( !HasSource() ) return;
 	if ( alFilters[id] == AL_FILTER_NULL ) return;
