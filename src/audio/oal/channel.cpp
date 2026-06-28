@@ -89,6 +89,20 @@ void CChannel::Init(uint32 _id, bool Is2D)
 	id = _id;
 	if ( HasSource() )
 	{
+#ifdef USE_STEAMAUDIO
+		if (!SA::usingSteamAudio) {
+			SA::usingSteamAudio = SA::InitSteamAudio();
+		}
+		
+		for (size_t i = 0; i < NUM_CHANNELS; i++) {
+			if (SA::sound_sources.size() >= SA::MAX_SOUND_SOURCE_NUM) {
+				SA::sound_sources.clear();
+			}
+			SA::SoundSource sound_source{};
+			SA::sound_sources.emplace(id, std::move(sound_source));
+		}
+#endif
+	
 		alSourcei(alSources[id], AL_SOURCE_RELATIVE, AL_TRUE);
 		if ( IsFXSupported() )
 			alSource3i(alSources[id], AL_AUXILIARY_SEND_FILTER, AL_EFFECTSLOT_NULL, 0, AL_FILTER_NULL);
@@ -98,6 +112,10 @@ void CChannel::Init(uint32 _id, bool Is2D)
 			bIs2D = true;
 			alSource3f(alSources[id], AL_POSITION, 0.0f, 0.0f, 0.0f);
 			alSourcef(alSources[id], AL_GAIN, 1.0f);
+			
+#ifdef USE_STEAMAUDIO
+			SA::sound_sources[id].source_position = {0.0f, 0.0f, 0.0f};
+#endif
 		}
 	}
 }
@@ -111,6 +129,10 @@ void CChannel::Term()
 		{
 			alSource3i(alSources[id], AL_AUXILIARY_SEND_FILTER, AL_EFFECTSLOT_NULL, 0, AL_FILTER_NULL);
 		}
+	
+#ifdef USE_STEAMAUDIO
+		SA::sound_sources.erase(id);
+#endif
 	}
 }
 

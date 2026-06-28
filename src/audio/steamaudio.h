@@ -1,15 +1,16 @@
 ﻿#pragma once
 
-#ifdef USE_STEAMAUDIO
 #include <cstdint>
-#include <phonon.h>
-#include <stack>
+#include <map>
 #include <vector>
 
-namespace SteamAudio
+#ifdef USE_STEAMAUDIO
+#include <phonon.h>
+
+namespace SA
 {
-    constexpr int MAX_SOUND_SOURCE_NUM = 64;
     bool usingSteamAudio = false;
+    constexpr int MAX_SOUND_SOURCE_NUM = 64;
     IPLContext context = nullptr;
 
     class SoundSource
@@ -53,7 +54,7 @@ namespace SteamAudio
 
         bool InitFX()
         {
-            audio_settings.samplingRate = this->sample_rate;
+            audio_settings.samplingRate = 48000;
             audio_settings.frameSize = STEAM_AUDIO_FRAME_SIZE;
 
             IPLHRTFSettings hrtf_settings{};
@@ -68,8 +69,7 @@ namespace SteamAudio
 
             IPLBinauralEffectSettings bin_effect_settings{};
             bin_effect_settings.hrtf = hrtf;
-            if (iplBinauralEffectCreate(context, &audio_settings, &bin_effect_settings, &bin_effect) !=
-                IPL_STATUS_SUCCESS)
+            if (iplBinauralEffectCreate(context, &audio_settings, &bin_effect_settings, &bin_effect) != IPL_STATUS_SUCCESS)
             {
                 fprintf(stderr, "Failed to create binaural effect!\n");
                 return false;
@@ -77,8 +77,7 @@ namespace SteamAudio
 
             IPLDirectEffectSettings dir_effect_settings{};
             dir_effect_settings.numChannels = 1; // input and output buffers will have 1 channel
-            if (iplDirectEffectCreate(context, &audio_settings, &dir_effect_settings, &direct_effect) !=
-                IPL_STATUS_SUCCESS)
+            if (iplDirectEffectCreate(context, &audio_settings, &dir_effect_settings, &direct_effect) != IPL_STATUS_SUCCESS)
             {
                 fprintf(stderr, "Failed to create direct effect!\n");
                 return false;
@@ -212,8 +211,7 @@ namespace SteamAudio
             }
         }
     };
-
-    std::stack<SoundSource> sound_sources;
+    std::map<uint32_t, SoundSource> sound_sources{};
 
     bool InitSteamAudio()
     {
@@ -226,15 +224,6 @@ namespace SteamAudio
         }
 
         return true;
-    }
-
-    void AddSoundSource(const SoundSource& audio_src)
-    {
-        if (sound_sources.size() >= MAX_SOUND_SOURCE_NUM)
-        {
-            sound_sources.pop();
-        }
-        sound_sources.push(audio_src);
     }
 }
 #endif
