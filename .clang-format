@@ -6,7 +6,7 @@ AllowShortLoopsOnASingleLine: 'true'
 AlwaysBreakAfterReturnType: TopLevel
 AccessModifierOffset: -8
 BreakBeforeBraces: Linux
-ColumnLimit: 160
+ColumnLimit: 0
 IndentCaseLabels: 'false'
 IndentWidth: '8'
 Language: Cpp
