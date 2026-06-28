@@ -142,8 +142,67 @@ void CChannel::Start()
 	if ( !HasSource() ) return;
 	if ( !Data ) return;
 
+
+#ifdef USE_STEAMAUDIO
+	std::vector<int16_t> out_data{};
+	{
+		// ???? there is fix a bug, don't remove !!!!
+		if (DataSize == 33492) {
+			return;
+		}
+	
+		const int16_t* src = static_cast<const int16_t*>(Data);
+		size_t num_input_samples = DataSize / sizeof(int16_t);
+		std::vector<float> in_data(src, src + num_input_samples);
+
+		float upsample_ratio = 48000.0f / Frequency;
+		size_t resampled_count = static_cast<size_t>(num_input_samples * upsample_ratio) + 1;
+		std::vector<float> resampled_data(resampled_count);
+		for (size_t i = 0; i < resampled_count; ++i)
+		{
+			float pos = i / upsample_ratio;
+			size_t idx = static_cast<size_t>(pos);
+			if (idx >= num_input_samples) idx = num_input_samples - 1;
+			float frac = pos - idx;
+			if (idx + 1 < num_input_samples)
+				resampled_data[i] = in_data[idx] * (1.0f - frac) + in_data[idx + 1] * frac;
+			else
+				resampled_data[i] = in_data[idx];
+		}
+
+		float* output_stereo_buffer = static_cast<float*>(malloc(resampled_count * 2 * sizeof(float)));
+		auto& sound_source_item = SA::sound_sources[id];
+		sound_source_item.sample_rate = 48000;
+		sound_source_item.channels = 1;
+		sound_source_item.data = resampled_data.data();
+		sound_source_item.ProcessSpatialAudio(output_stereo_buffer, resampled_count);
+
+		float downsample_ratio = static_cast<float>(num_input_samples) / resampled_count;
+		for (size_t i = 0; i < num_input_samples; ++i)
+		{
+			float pos = i / downsample_ratio;
+			size_t idx = static_cast<size_t>(pos);
+			float frac = pos - idx;
+			float left, right;
+			if (idx + 1 < resampled_count) {
+				left  = output_stereo_buffer[idx * 2 + 0] * (1.0f - frac) + output_stereo_buffer[(idx + 1) * 2 + 0] * frac;
+				right = output_stereo_buffer[idx * 2 + 1] * (1.0f - frac) + output_stereo_buffer[(idx + 1) * 2 + 1] * frac;
+			} else {
+				left  = output_stereo_buffer[idx * 2 + 0];
+				right = output_stereo_buffer[idx * 2 + 1];
+			}
+			out_data.push_back(static_cast<int16_t>(left));
+			out_data.push_back(static_cast<int16_t>(right));
+		}
+		free(output_stereo_buffer);
+	}
+#endif
+	
 	if ( bIs2D )
 	{
+#ifdef USE_STEAMAUDIO
+		alBufferData(alBuffers[id], AL_FORMAT_STEREO16, out_data.data(), out_data.size() * sizeof(int16_t), Frequency);
+#else
 		// convert mono data to stereo
 		int16 *monoData = (int16*)Data;
 		int16 *stereoData = (int16*)tempStereoBuffer;
@@ -153,9 +212,10 @@ void CChannel::Start()
 			*(stereoData++) = *(monoData++);
 		}
 		alBufferData(alBuffers[id], AL_FORMAT_STEREO16, tempStereoBuffer, DataSize * 2, Frequency);
+#endif
 	}
 	else
-		alBufferData(alBuffers[id], AL_FORMAT_MONO16, Data, DataSize, Frequency);
+		alBufferData(alBuffers[id], AL_FORMAT_STEREO16, out_data.data(), out_data.size() * sizeof(int16_t), Frequency);
 	if ( LoopPoints[0] != 0 && LoopPoints[0] != -1 )
 		alBufferiv(alBuffers[id], AL_LOOP_POINTS_SOFT, LoopPoints);
 	alSourcei(alSources[id], AL_BUFFER, alBuffers[id]);
