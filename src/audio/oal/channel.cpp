@@ -92,6 +92,7 @@ void CChannel::Init(uint32 _id, bool Is2D)
 #ifdef USE_STEAMAUDIO
 		if (!SA::usingSteamAudio) {
 			SA::usingSteamAudio = SA::InitSteamAudio();
+			SA::InitFX();
 		}
 		
 		for (size_t i = 0; i < NUM_CHANNELS; i++) {

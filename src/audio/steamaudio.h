@@ -9,14 +9,20 @@
 
 namespace SA
 {
+    const uint32_t STEAM_AUDIO_FRAME_SIZE = 512;
     bool usingSteamAudio = false;
     constexpr int MAX_SOUND_SOURCE_NUM = 64;
     IPLContext context = nullptr;
+    IPLAudioSettings audio_settings{};
+    IPLHRTF hrtf = nullptr;
+    IPLBinauralEffect bin_effect = nullptr;
+    IPLDirectEffect direct_effect = nullptr;
+    IPLAudioBuffer out_buffer{};
+    std::vector<float> mono_input_buffer;
 
     class SoundSource
     {
     public:
-        const uint32_t STEAM_AUDIO_FRAME_SIZE = 512;
 
         IPLVector3 source_direction = {1.0f, 0.0f, 1.0f};
         IPLVector3 source_position = {0.0f, 0.0f, 0.0f};
@@ -32,13 +38,6 @@ namespace SA
         uint64_t total_frames = 0;
         uint32_t channels = 0;
         uint32_t sample_rate = 0;
-
-        IPLAudioSettings audio_settings{};
-        IPLHRTF hrtf = nullptr;
-        IPLBinauralEffect bin_effect = nullptr;
-        IPLDirectEffect direct_effect = nullptr;
-        IPLAudioBuffer out_buffer{};
-        std::vector<float> mono_input_buffer;
         bool is_playing_finished = false;
         SoundSource* p_sound_resource = nullptr;
         size_t sample_frame_cursor = 0;
@@ -51,44 +50,7 @@ namespace SA
                 data = nullptr;
             }
         }
-
-        bool InitFX()
-        {
-            audio_settings.samplingRate = 48000;
-            audio_settings.frameSize = STEAM_AUDIO_FRAME_SIZE;
-
-            IPLHRTFSettings hrtf_settings{};
-            hrtf_settings.type = IPL_HRTFTYPE_DEFAULT;
-            hrtf_settings.volume = 1.0f;
-
-            if (iplHRTFCreate(context, &audio_settings, &hrtf_settings, &hrtf) != IPL_STATUS_SUCCESS)
-            {
-                fprintf(stderr, "Failed to create HRTF!\n");
-                return false;
-            }
-
-            IPLBinauralEffectSettings bin_effect_settings{};
-            bin_effect_settings.hrtf = hrtf;
-            if (iplBinauralEffectCreate(context, &audio_settings, &bin_effect_settings, &bin_effect) != IPL_STATUS_SUCCESS)
-            {
-                fprintf(stderr, "Failed to create binaural effect!\n");
-                return false;
-            }
-
-            IPLDirectEffectSettings dir_effect_settings{};
-            dir_effect_settings.numChannels = 1; // input and output buffers will have 1 channel
-            if (iplDirectEffectCreate(context, &audio_settings, &dir_effect_settings, &direct_effect) != IPL_STATUS_SUCCESS)
-            {
-                fprintf(stderr, "Failed to create direct effect!\n");
-                return false;
-            }
-
-            iplAudioBufferAllocate(context, 2, audio_settings.frameSize, &out_buffer);
-            mono_input_buffer.resize(STEAM_AUDIO_FRAME_SIZE);
-
-            return true;
-        }
-
+        
         void ProcessSpatialAudio(float* output_stereo_buffer, size_t frame_count)
         {
             if (!bin_effect || frame_count != audio_settings.frameSize || !p_sound_resource)
@@ -225,5 +187,43 @@ namespace SA
 
         return true;
     }
+    
+    bool InitFX()
+    {
+        audio_settings.samplingRate = 48000;
+        audio_settings.frameSize = STEAM_AUDIO_FRAME_SIZE;
+
+        IPLHRTFSettings hrtf_settings{};
+        hrtf_settings.type = IPL_HRTFTYPE_DEFAULT;
+        hrtf_settings.volume = 1.0f;
+
+        if (iplHRTFCreate(context, &audio_settings, &hrtf_settings, &hrtf) != IPL_STATUS_SUCCESS)
+        {
+            fprintf(stderr, "Failed to create HRTF!\n");
+            return false;
+        }
+
+        IPLBinauralEffectSettings bin_effect_settings{};
+        bin_effect_settings.hrtf = hrtf;
+        if (iplBinauralEffectCreate(context, &audio_settings, &bin_effect_settings, &bin_effect) != IPL_STATUS_SUCCESS)
+        {
+            fprintf(stderr, "Failed to create binaural effect!\n");
+            return false;
+        }
+
+        IPLDirectEffectSettings dir_effect_settings{};
+        dir_effect_settings.numChannels = 1; // input and output buffers will have 1 channel
+        if (iplDirectEffectCreate(context, &audio_settings, &dir_effect_settings, &direct_effect) != IPL_STATUS_SUCCESS)
+        {
+            fprintf(stderr, "Failed to create direct effect!\n");
+            return false;
+        }
+
+        iplAudioBufferAllocate(context, 2, audio_settings.frameSize, &out_buffer);
+        mono_input_buffer.resize(STEAM_AUDIO_FRAME_SIZE);
+
+        return true;
+    }
+
 }
 #endif
