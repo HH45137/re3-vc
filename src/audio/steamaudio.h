@@ -17,6 +17,7 @@ namespace SA
     IPLAudioSettings audio_settings{};
     IPLHRTF hrtf = nullptr;
     IPLBinauralEffect bin_effect = nullptr;
+    IPLDirectEffect direct_effect = nullptr;
 
     class SoundSource
     {
@@ -63,12 +64,6 @@ namespace SA
             IPLVector3 direction = iplCalculateRelativeDirection(
                 context, source_position, listener_position, listener_ahead, listener_up);
 
-            IPLBinauralEffectParams bin_effect_params{};
-            bin_effect_params.direction = direction;
-            bin_effect_params.interpolation = IPL_HRTFINTERPOLATION_BILINEAR;
-            bin_effect_params.spatialBlend = 1.0f;
-            bin_effect_params.hrtf = hrtf;
-
             float* in_data_channels[] = {mono_input_buffer.data()};
             IPLAudioBuffer mono_buffer{};
             mono_buffer.numChannels = 1;
@@ -87,7 +82,79 @@ namespace SA
                 for (size_t i = copy_count; i < static_cast<size_t>(frame_size); ++i)
                     mono_input_buffer[i] = 0.0f;
 
-                iplBinauralEffectApply(bin_effect, &bin_effect_params, &mono_buffer, &out_buffer);
+                {
+                    IPLAudioBuffer temp_in_buffer{}, temp_out_buffer{};
+                    iplAudioBufferAllocate(context, 1, frame_size, &temp_in_buffer);
+                    iplAudioBufferAllocate(context, 1, frame_size, &temp_out_buffer);
+
+                    IPLDirectEffectParams direct_effect_params{};
+                    direct_effect_params.flags = static_cast<IPLDirectEffectFlags>(direct_effect_params.flags | IPL_DISTANCEATTENUATIONTYPE_DEFAULT);
+                    direct_effect_params.flags = static_cast<IPLDirectEffectFlags>(direct_effect_params.flags | IPL_AIRABSORPTIONTYPE_DEFAULT);
+                    direct_effect_params.flags = static_cast<IPLDirectEffectFlags>(direct_effect_params.flags | IPL_DIRECTEFFECTFLAGS_APPLYDIRECTIVITY);
+                    direct_effect_params.flags = static_cast<IPLDirectEffectFlags>(direct_effect_params.flags | IPL_DIRECTEFFECTFLAGS_APPLYOCCLUSION);
+                    direct_effect_params.flags = static_cast<IPLDirectEffectFlags>(direct_effect_params.flags | IPL_DIRECTEFFECTFLAGS_APPLYTRANSMISSION);
+                    
+                    // 距离衰减
+                    {
+                        IPLDistanceAttenuationModel distance_attenuation_model{};
+                        distance_attenuation_model.type = IPL_DISTANCEATTENUATIONTYPE_DEFAULT;
+                        float distance_attenuation = iplDistanceAttenuationCalculate(context, source_position, listener_position, &distance_attenuation_model);
+                        
+                        direct_effect_params.distanceAttenuation = distance_attenuation;
+                    }
+
+                    // 空气吸收
+                    {
+                        IPLAirAbsorptionModel air_absorption_model{};
+                        air_absorption_model.type = IPL_AIRABSORPTIONTYPE_DEFAULT;
+                        
+                        iplAirAbsorptionCalculate(context, source_position, listener_position, &air_absorption_model, direct_effect_params.airAbsorption);
+                    }
+
+                    // 方向性
+                    {
+                        IPLCoordinateSpace3 source_coordinates{
+                            {1.0f, 0.0f, 0.0f},
+                            {0.0f, 1.0f, 0.0f},
+                            {0.0f, 0.0f, -1.0f},
+                            source_position
+                        };
+                        
+                        IPLDirectivity directivity{};
+                        directivity.dipoleWeight = 0.5f;
+                        directivity.dipolePower = 2.0f;
+                        
+                        direct_effect_params.directivity = iplDirectivityCalculate(context, source_coordinates, listener_position, &directivity);
+                    }
+
+                    // 阻塞
+                    {
+                        direct_effect_params.occlusion = 1.0f;
+                    }
+
+                    // 传输
+                    {
+                        direct_effect_params.transmission[0] = 1.0f;
+                        direct_effect_params.transmission[1] = 1.0f;
+                        direct_effect_params.transmission[2] = 1.0f;
+                    }
+
+                    // Final apply direct effects
+                    iplDirectEffectApply(direct_effect, &direct_effect_params, &mono_buffer, &temp_out_buffer);
+                    
+                    // 双声道化
+                    {
+                        IPLBinauralEffectParams bin_effect_params{};
+                        bin_effect_params.direction = direction;
+                        bin_effect_params.interpolation = IPL_HRTFINTERPOLATION_BILINEAR;
+                        bin_effect_params.spatialBlend = 1.0f;
+                        bin_effect_params.hrtf = hrtf;
+                        iplBinauralEffectApply(bin_effect, &bin_effect_params, &temp_out_buffer, &out_buffer);
+                    }
+
+                    iplAudioBufferFree(context, &temp_in_buffer);
+                    iplAudioBufferFree(context, &temp_out_buffer);
+                }
 
                 for (size_t i = 0; i < copy_count; ++i)
                 {
@@ -138,6 +205,13 @@ namespace SA
             return false;
         }
 
+        IPLDirectEffectSettings dir_effect_settings{};
+        dir_effect_settings.numChannels = 1; // input and output buffers will have 1 channel
+        if (iplDirectEffectCreate(context, &audio_settings, &dir_effect_settings, &direct_effect) != IPL_STATUS_SUCCESS) {
+            fprintf(stderr, "Failed to create direct effect!\n");
+            return false;
+        }
+        
         return true;
     }
 }
