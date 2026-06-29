@@ -188,35 +188,6 @@ void CChannel::Start()
 		sound_source_item.sample_rate = 48000;
 		sound_source_item.channels = 1;
 		sound_source_item.data = resampled_data.data();
-		{
-			CPlayerInfo &pPlayerInfo = CWorld::Players[CWorld::PlayerInFocus];
-			auto camera_dir = TheCamera.GetForward();
-			auto camera_pos = TheCamera.GetPosition();
-			auto camera_up = TheCamera.GetUp();
-			
-			sound_source_item.listener_ahead = {
-				camera_dir.x,
-				camera_dir.y,
-				camera_dir.z
-			};
-			sound_source_item.listener_up = {
-				camera_up.x,
-				camera_up.y,
-				camera_up.z
-			};
-			sound_source_item.listener_position = {
-				camera_pos.x,
-				camera_pos.y,
-				camera_pos.z
-			};
-			
-			fprintf(stdout, "source_position = %f, %f, %f\n",
-				sound_source_item.source_position.x,
-				sound_source_item.source_position.y,
-				sound_source_item.source_position.z
-			);
-			fprintf(stdout, "listener_position = %f, %f, %f\n", camera_pos.x, camera_pos.y, camera_pos.z);
-		}
 		sound_source_item.ProcessSpatialAudio(output_stereo_buffer, resampled_count);
 
 		float downsample_ratio = static_cast<float>(num_input_samples) / resampled_count;
@@ -377,10 +348,30 @@ void CChannel::SetPosition(float x, float y, float z)
 {
 	if ( !HasSource() ) return;
 #ifdef USE_STEAMAUDIO
-	SA::sound_sources[id].source_position = {
+	auto camera_dir = TheCamera.GetForward();
+	auto camera_pos = TheCamera.GetPosition();
+	auto camera_up = TheCamera.GetUp();
+
+	auto sound_source_item = SA::sound_sources[id];
+	sound_source_item.source_position = {
 		x,
 		y,
 		z
+	};
+	sound_source_item.listener_ahead = {
+		camera_dir.x,
+		camera_dir.y,
+		camera_dir.z
+	};
+	sound_source_item.listener_up = {
+		camera_up.x,
+		camera_up.y,
+		camera_up.z
+	};
+	sound_source_item.listener_position = {
+		camera_pos.x,
+		camera_pos.y,
+		camera_pos.z
 	};
 #else
 	alSource3f(alSources[id], AL_POSITION, x, y, z);
