@@ -4,7 +4,11 @@
 
 #ifdef AUDIO_OAL
 #include "channel.h"
+
+#include "Camera.h"
+#include "PlayerPed.h"
 #include "sampman.h"
+#include "World.h"
 
 #ifndef _WIN32
 #include <float.h>
@@ -184,6 +188,35 @@ void CChannel::Start()
 		sound_source_item.sample_rate = 48000;
 		sound_source_item.channels = 1;
 		sound_source_item.data = resampled_data.data();
+		{
+			CPlayerInfo &pPlayerInfo = CWorld::Players[CWorld::PlayerInFocus];
+			auto camera_dir = TheCamera.GetForward();
+			auto camera_pos = TheCamera.GetPosition();
+			auto camera_up = TheCamera.GetUp();
+			
+			sound_source_item.listener_ahead = {
+				camera_dir.x,
+				camera_dir.y,
+				camera_dir.z
+			};
+			sound_source_item.listener_up = {
+				camera_up.x,
+				camera_up.y,
+				camera_up.z
+			};
+			sound_source_item.listener_position = {
+				camera_pos.x,
+				camera_pos.y,
+				camera_pos.z
+			};
+			
+			fprintf(stdout, "source_position = %f, %f, %f\n",
+				sound_source_item.source_position.x,
+				sound_source_item.source_position.y,
+				sound_source_item.source_position.z
+			);
+			fprintf(stdout, "listener_position = %f, %f, %f\n", camera_pos.x, camera_pos.y, camera_pos.z);
+		}
 		sound_source_item.ProcessSpatialAudio(output_stereo_buffer, resampled_count);
 
 		float downsample_ratio = static_cast<float>(num_input_samples) / resampled_count;
@@ -360,6 +393,7 @@ void CChannel::SetDistances(float max, float min)
 #ifdef USE_STEAMAUDIO
 	SA::sound_sources[id].dist_max = max;
 	SA::sound_sources[id].dist_min = min;
+	SA::sound_sources[id].gain = 1.0f;
 #else
 	alSourcef   (alSources[id], AL_MAX_DISTANCE,       max);
 	alSourcef   (alSources[id], AL_REFERENCE_DISTANCE, min);

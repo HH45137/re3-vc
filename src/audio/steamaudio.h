@@ -17,13 +17,15 @@ namespace SA
     IPLAudioSettings audio_settings{};
     IPLHRTF hrtf = nullptr;
     IPLBinauralEffect bin_effect = nullptr;
-    IPLAudioBuffer out_buffer{};
 
     class SoundSource
     {
     public:
         IPLVector3 source_position = {0.0f, 0.0f, 0.0f};
         IPLVector3 listener_position = {0.0f, 0.0f, 0.0f};
+        IPLVector3 listener_ahead = {0.0f, 0.0f, -1.0f};
+        IPLVector3 listener_up = {0.0f, 1.0f, 0.0f};
+        IPLAudioBuffer out_buffer{};
         float gain = 1.0f;
         float dist_min = 1.0f;
         float dist_max = FLT_MAX;
@@ -57,9 +59,7 @@ namespace SA
             iplAudioBufferAllocate(context, 2, frame_size, &out_buffer);
 
             mono_input_buffer.resize(frame_size);
-
-            IPLVector3 listener_ahead = {0.0f, 0.0f, -1.0f};
-            IPLVector3 listener_up = {0.0f, 1.0f, 0.0f};
+            
             IPLVector3 direction = iplCalculateRelativeDirection(
                 context, source_position, listener_position, listener_ahead, listener_up);
 
@@ -91,8 +91,8 @@ namespace SA
 
                 for (size_t i = 0; i < copy_count; ++i)
                 {
-                    output_stereo_buffer[(processed + i) * 2 + 0] = out_buffer.data[0][i];
-                    output_stereo_buffer[(processed + i) * 2 + 1] = out_buffer.data[1][i];
+                    output_stereo_buffer[(processed + i) * 2 + 0] = out_buffer.data[0][i] * gain;
+                    output_stereo_buffer[(processed + i) * 2 + 1] = out_buffer.data[1][i] * gain;
                 }
 
                 processed += frame_size;
