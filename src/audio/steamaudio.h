@@ -20,10 +20,14 @@ namespace SA
         IPLVector3 listener_position = {0.0f, 0.0f, 0.0f};
         IPLVector3 listener_ahead = {0.0f, 0.0f, -1.0f};
         IPLVector3 listener_up = {0.0f, 1.0f, 0.0f};
+        IPLCoordinateSpace3 source_coordinates{
+            {1.0f, 0.0f, 0.0f},
+            {0.0f, 1.0f, 0.0f},
+            {0.0f, 0.0f, -1.0f},
+            source_position
+        };
         IPLAudioBuffer out_buffer{};
         float gain = 1.0f;
-        float dist_min = 1.0f;
-        float dist_max = FLT_MAX;
 
         std::vector<float> mono_input_buffer{};
         float* data = nullptr;

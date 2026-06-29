@@ -352,7 +352,7 @@ void CChannel::SetPosition(float x, float y, float z)
 	auto camera_pos = TheCamera.GetPosition();
 	auto camera_up = TheCamera.GetUp();
 
-	auto sound_source_item = SA::sound_sources[id];
+	auto& sound_source_item = SA::sound_sources[id];
 	sound_source_item.source_position = {
 		x,
 		y,
@@ -373,6 +373,9 @@ void CChannel::SetPosition(float x, float y, float z)
 		camera_pos.y,
 		camera_pos.z
 	};
+	sound_source_item.source_coordinates.origin = sound_source_item.source_position;
+	sound_source_item.source_coordinates.up = sound_source_item.listener_up;
+	sound_source_item.source_coordinates.ahead = sound_source_item.listener_ahead;
 #else
 	alSource3f(alSources[id], AL_POSITION, x, y, z);
 #endif
@@ -382,9 +385,7 @@ void CChannel::SetDistances(float max, float min)
 {
 	if ( !HasSource() ) return;
 #ifdef USE_STEAMAUDIO
-	SA::sound_sources[id].dist_max = max;
-	SA::sound_sources[id].dist_min = min;
-	SA::sound_sources[id].gain = 1.0f;
+	SA::sound_sources[id].gain = 2.0f;
 #else
 	alSourcef   (alSources[id], AL_MAX_DISTANCE,       max);
 	alSourcef   (alSources[id], AL_REFERENCE_DISTANCE, min);

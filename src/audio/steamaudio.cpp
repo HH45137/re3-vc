@@ -98,13 +98,6 @@ namespace SA
 
                 // 方向性
                 {
-                    IPLCoordinateSpace3 source_coordinates{
-                        {1.0f, 0.0f, 0.0f},
-                        {0.0f, 1.0f, 0.0f},
-                        {0.0f, 0.0f, -1.0f},
-                        source_position
-                    };
-
                     IPLDirectivity directivity{};
                     directivity.dipoleWeight = 0.5f;
                     directivity.dipolePower = 2.0f;
