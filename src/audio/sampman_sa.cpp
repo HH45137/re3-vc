@@ -47,6 +47,9 @@
 #include "MusicManager.h"
 #include "Frontend.h"
 #include "Timer.h"
+#include "Camera.h"
+
+#include "steamaudio.h"
 #ifdef AUDIO_OAL_USE_OPUS
 #include <opusfile.h>
 #endif
@@ -1374,7 +1377,11 @@ cSampleManager::SetChannel3DPosition(uint32 nChannel, float fX, float fY, float 
 {
 	ASSERT(nChannel < MAXCHANNELS);
 
-	aChannel[nChannel].SetPosition(-fX, fY, fZ);
+	// Pass game-world coordinates straight through; the Steam Audio backend
+	// (CChannel::SetPosition -> SA::GameToIPL) handles the coordinate space
+	// conversion. The old "-fX" negation only made sense for OpenAL's own
+	// spatializer.
+	aChannel[nChannel].SetPosition(fX, fY, fZ);
 }
 
 void
@@ -1709,6 +1716,15 @@ cSampleManager::IsStreamPlaying(uint8 nStream)
 void
 cSampleManager::Service(void)
 {
+	// Keep Steam Audio's listener in sync with the camera every frame.
+	// All active sources share this state when their buffers are processed.
+	{
+		CVector pos = TheCamera.GetPosition();
+		CVector fwd = TheCamera.GetForward();
+		CVector up  = TheCamera.GetUp();
+		SA::UpdateListener(pos.x, pos.y, pos.z, fwd.x, fwd.y, fwd.z, up.x, up.y, up.z);
+	}
+
 	for(int32 i = 0; i < MAX_STREAMS; i++) {
 		CStream *stream = aStream[i];
 

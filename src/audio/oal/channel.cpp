@@ -103,6 +103,7 @@ void CChannel::Init(uint32 _id, bool Is2D)
 			SA::sound_sources.clear();
 		}
 		SA::SoundSource sound_source{};
+		sound_source.is2d = Is2D;
 		SA::sound_sources.emplace(id, std::move(sound_source));
 #endif
 	
@@ -348,34 +349,10 @@ void CChannel::SetPosition(float x, float y, float z)
 {
 	if ( !HasSource() ) return;
 #ifdef USE_STEAMAUDIO
-	auto camera_dir = TheCamera.GetForward();
-	auto camera_pos = TheCamera.GetPosition();
-	auto camera_up = TheCamera.GetUp();
-
+	// (x, y, z) arrive in GTA world coordinates: +X east, +Y north, +Z up.
+	// Convert to Steam Audio's coordinate space (see SA::GameToIPL).
 	auto& sound_source_item = SA::sound_sources[id];
-	sound_source_item.source_position = {
-		x,
-		y,
-		z
-	};
-	sound_source_item.listener_ahead = {
-		camera_dir.x,
-		camera_dir.y,
-		camera_dir.z
-	};
-	sound_source_item.listener_up = {
-		camera_up.x,
-		camera_up.y,
-		camera_up.z
-	};
-	sound_source_item.listener_position = {
-		camera_pos.x,
-		camera_pos.y,
-		camera_pos.z
-	};
-	sound_source_item.source_coordinates.origin = sound_source_item.source_position;
-	sound_source_item.source_coordinates.up = sound_source_item.listener_up;
-	sound_source_item.source_coordinates.ahead = sound_source_item.listener_ahead;
+	sound_source_item.source_position = SA::GameToIPL(x, y, z);
 #else
 	alSource3f(alSources[id], AL_POSITION, x, y, z);
 #endif
@@ -385,7 +362,12 @@ void CChannel::SetDistances(float max, float min)
 {
 	if ( !HasSource() ) return;
 #ifdef USE_STEAMAUDIO
-	SA::sound_sources[id].gain = 2.0f;
+	// Distance attenuation is intentionally NOT configured here: the game
+	// already computes distance-based volume itself (ComputeVolume) and feeds
+	// it via SetVolume/SetGain. Only store the values for future use.
+	auto& sound_source_item = SA::sound_sources[id];
+	sound_source_item.max_distance = max;
+	sound_source_item.min_distance = (min > 0.0f) ? min : 1.0f;
 #else
 	alSourcef   (alSources[id], AL_MAX_DISTANCE,       max);
 	alSourcef   (alSources[id], AL_REFERENCE_DISTANCE, min);
@@ -396,7 +378,15 @@ void CChannel::SetDistances(float max, float min)
 	
 void CChannel::SetPan(int32 pan)
 {
+#ifdef USE_STEAMAUDIO
+	// 2D channel panning: must NOT go through SetPosition(), otherwise the
+	// sound gets 3D-spatialized right next to the listener. Store the pan
+	// and apply it as a stereo balance when the buffer is processed.
+	if ( !HasSource() ) return;
+	SA::sound_sources[id].pan = static_cast<float>(pan);
+#else
 	SetPosition((pan-63)/64.0f, 0.0f, Sqrt(1.0f-SQR((pan-63)/64.0f)));
+#endif
 }
 
 void CChannel::ClearBuffer()

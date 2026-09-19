@@ -16,6 +16,23 @@ namespace SA
     IPLBinauralEffect bin_effect = nullptr;
     IPLDirectEffect direct_effect = nullptr;
 
+    bool usingSteamAudio = false;
+    std::map<uint32_t, SoundSource> sound_sources{};
+
+    // Shared listener state, already converted to Steam Audio space.
+    IPLVector3 listener_position = {0.0f, 0.0f, 0.0f};
+    IPLVector3 listener_ahead    = {0.0f, 0.0f, 1.0f};
+    IPLVector3 listener_up       = {0.0f, 1.0f, 0.0f};
+
+    void UpdateListener(float posX, float posY, float posZ,
+                        float aheadX, float aheadY, float aheadZ,
+                        float upX, float upY, float upZ)
+    {
+        listener_position = GameToIPL(posX, posY, posZ);
+        listener_ahead    = GameToIPL(aheadX, aheadY, aheadZ);
+        listener_up       = GameToIPL(upX, upY, upZ);
+    }
+
     SoundSource::~SoundSource()
     {
         if (data)
@@ -28,6 +45,24 @@ namespace SA
     {
         if (!bin_effect || !data)
         {
+            return;
+        }
+
+        // 2D sounds (radio, UI, police radio, ...): no spatialization at all,
+        // just a mono->stereo copy with pan applied as channel balance.
+        if (is2d)
+        {
+            const float balance = (pan - 63.0f) / 64.0f; // -1 .. 1
+            float left_gain = gain * (1.0f - balance); if (left_gain < 0.0f) left_gain = 0.0f;
+            float right_gain = gain * (1.0f + balance); if (right_gain < 0.0f) right_gain = 0.0f;
+            if (left_gain > 2.0f) left_gain = 2.0f;
+            if (right_gain > 2.0f) right_gain = 2.0f;
+            for (size_t i = 0; i < data_count; ++i)
+            {
+                output_stereo_buffer[i * 2 + 0] = data[i] * left_gain;
+                output_stereo_buffer[i * 2 + 1] = data[i] * right_gain;
+            }
+            is_playing_finished = true;
             return;
         }
 
@@ -60,79 +95,19 @@ namespace SA
             for (size_t i = copy_count; i < static_cast<size_t>(frame_size); ++i)
                 mono_input_buffer[i] = 0.0f;
 
+            // NOTE: loudness/distance attenuation is already handled by the game
+            // itself: cAudioManager::ComputeVolume() bakes distance attenuation
+            // into the channel volume (CChannel::SetVolume -> gain). Applying
+            // Steam Audio's distance attenuation here as well would attenuate
+            // twice, making all 3D sounds nearly inaudible. Steam Audio is
+            // therefore only used for binaural (directional) spatialization.
             {
-                IPLAudioBuffer temp_in_buffer{}, temp_out_buffer{};
-                iplAudioBufferAllocate(context, 1, frame_size, &temp_in_buffer);
-                iplAudioBufferAllocate(context, 1, frame_size, &temp_out_buffer);
-
-                IPLDirectEffectParams direct_effect_params{};
-                direct_effect_params.flags = static_cast<IPLDirectEffectFlags>(direct_effect_params.flags |
-                    IPL_DISTANCEATTENUATIONTYPE_DEFAULT);
-                direct_effect_params.flags = static_cast<IPLDirectEffectFlags>(direct_effect_params.flags |
-                    IPL_AIRABSORPTIONTYPE_DEFAULT);
-                direct_effect_params.flags = static_cast<IPLDirectEffectFlags>(direct_effect_params.flags |
-                    IPL_DIRECTEFFECTFLAGS_APPLYDIRECTIVITY);
-                direct_effect_params.flags = static_cast<IPLDirectEffectFlags>(direct_effect_params.flags |
-                    IPL_DIRECTEFFECTFLAGS_APPLYOCCLUSION);
-                direct_effect_params.flags = static_cast<IPLDirectEffectFlags>(direct_effect_params.flags |
-                    IPL_DIRECTEFFECTFLAGS_APPLYTRANSMISSION);
-
-                // 距离衰减
-                {
-                    IPLDistanceAttenuationModel distance_attenuation_model{};
-                    distance_attenuation_model.type = IPL_DISTANCEATTENUATIONTYPE_DEFAULT;
-                    float distance_attenuation = iplDistanceAttenuationCalculate(
-                        context, source_position, listener_position, &distance_attenuation_model);
-
-                    direct_effect_params.distanceAttenuation = distance_attenuation;
-                }
-
-                // 空气吸收
-                {
-                    IPLAirAbsorptionModel air_absorption_model{};
-                    air_absorption_model.type = IPL_AIRABSORPTIONTYPE_DEFAULT;
-
-                    iplAirAbsorptionCalculate(context, source_position, listener_position, &air_absorption_model,
-                                              direct_effect_params.airAbsorption);
-                }
-
-                // 方向性
-                {
-                    IPLDirectivity directivity{};
-                    directivity.dipoleWeight = 0.5f;
-                    directivity.dipolePower = 2.0f;
-
-                    direct_effect_params.directivity = iplDirectivityCalculate(
-                        context, source_coordinates, listener_position, &directivity);
-                }
-
-                // 阻塞
-                {
-                    direct_effect_params.occlusion = 1.0f;
-                }
-
-                // 传输
-                {
-                    direct_effect_params.transmission[0] = 1.0f;
-                    direct_effect_params.transmission[1] = 1.0f;
-                    direct_effect_params.transmission[2] = 1.0f;
-                }
-
-                // Final apply direct effects
-                iplDirectEffectApply(direct_effect, &direct_effect_params, &mono_buffer, &temp_out_buffer);
-
-                // 双声道化
-                {
-                    IPLBinauralEffectParams bin_effect_params{};
-                    bin_effect_params.direction = direction;
-                    bin_effect_params.interpolation = IPL_HRTFINTERPOLATION_BILINEAR;
-                    bin_effect_params.spatialBlend = 1.0f;
-                    bin_effect_params.hrtf = hrtf;
-                    iplBinauralEffectApply(bin_effect, &bin_effect_params, &temp_out_buffer, &out_buffer);
-                }
-
-                iplAudioBufferFree(context, &temp_in_buffer);
-                iplAudioBufferFree(context, &temp_out_buffer);
+                IPLBinauralEffectParams bin_effect_params{};
+                bin_effect_params.direction = direction;
+                bin_effect_params.interpolation = IPL_HRTFINTERPOLATION_BILINEAR;
+                bin_effect_params.spatialBlend = 1.0f;
+                bin_effect_params.hrtf = hrtf;
+                iplBinauralEffectApply(bin_effect, &bin_effect_params, &mono_buffer, &out_buffer);
             }
 
             for (size_t i = 0; i < copy_count; ++i)
@@ -141,7 +116,7 @@ namespace SA
                 output_stereo_buffer[(processed + i) * 2 + 1] = out_buffer.data[1][i] * gain;
             }
 
-            processed += frame_size;
+            processed += copy_count;
         }
 
         is_playing_finished = true;
