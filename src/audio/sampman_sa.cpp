@@ -725,7 +725,10 @@ cSampleManager::Initialise(void)
 		int index = 0;
 		_maxSamples = Min(MAXCHANNELS, providers[index].sources);
 
-		ALCint attr[] = {ALC_FREQUENCY,MAX_FREQ,
+		// Mix the device at the same rate Steam Audio processes audio, so the
+		// spatialized stream blocks are played back 1:1 (no OpenAL resampling,
+		// which caused crackling; and 48 kHz keeps the HRTF localization cues).
+		ALCint attr[] = {ALC_FREQUENCY, SA::STEAM_AUDIO_SAMPLING_RATE,
 		                 ALC_MONO_SOURCES, MAX_DIGITAL_MIXER_CHANNELS - MAX2DCHANNELS,
 		                 ALC_STEREO_SOURCES, MAX2DCHANNELS,
 		                 0,
@@ -1723,6 +1726,13 @@ cSampleManager::Service(void)
 		CVector fwd = TheCamera.GetForward();
 		CVector up  = TheCamera.GetUp();
 		SA::UpdateListener(pos.x, pos.y, pos.z, fwd.x, fwd.y, fwd.z, up.x, up.y, up.z);
+	}
+
+	// Feed the Steam Audio streaming channels: each frame new blocks are
+	// spatialized with the current positions, so sounds track the player
+	// in real time instead of being baked at Start().
+	for(int32 i = 0; i < NUM_CHANNELS; i++) {
+		aChannel[i].ServiceStream();
 	}
 
 	for(int32 i = 0; i < MAX_STREAMS; i++) {

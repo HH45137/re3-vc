@@ -6,6 +6,9 @@
 #include <AL/alext.h>
 #include <AL/efx.h>
 
+#include <vector>
+#include <cstdint>
+
 
 class CChannel
 {
@@ -21,6 +24,25 @@ class CChannel
 	ALint  LoopPoints[2];
 	ALint  LastProcessedOffset;
 	bool   bIs2D;
+#ifdef USE_STEAMAUDIO
+	// Queue-based streaming state for 3D channels: audio is spatialized in
+	// small blocks every frame using the CURRENT source/listener positions,
+	// instead of being baked once when playback starts.
+	static constexpr int SA_STREAM_BUFFERS = 10; // ~106 ms of 48 kHz audio
+	std::vector<float>   m_StreamData;     // mono float @ 48 kHz
+	std::vector<int16_t> m_SABlockScratch; // interleaved stereo int16 block
+	size_t m_StreamCursor    = 0;
+	size_t m_StreamLoopStart = 0;
+	size_t m_StreamLoopEnd   = 0;
+	size_t m_StreamTotal     = 0;
+	bool   m_bStreaming      = false;
+	ALuint m_SAStreamBuffers[SA_STREAM_BUFFERS] = {};
+	int    m_SAStreamNext    = 0;
+
+	void StartStreamingSA();
+	void StopStreamSA();
+	bool QueueNextBlockSA();
+#endif
 public:
 	static int32 channelsThatNeedService;
 
@@ -50,6 +72,11 @@ public:
 	void SetReverbMix(ALuint slot, float mix);
 	void UpdateReverb(ALuint slot);
 	bool Update();
+#ifdef USE_STEAMAUDIO
+	// Called once per frame from cSampleManager::Service to feed the
+	// spatialization queue with freshly spatialized blocks.
+	void ServiceStream();
+#endif
 };
 
 #endif

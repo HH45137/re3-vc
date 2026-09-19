@@ -105,6 +105,7 @@ void CChannel::Init(uint32 _id, bool Is2D)
 		SA::SoundSource sound_source{};
 		sound_source.is2d = Is2D;
 		SA::sound_sources.emplace(id, std::move(sound_source));
+		alGenBuffers(SA_STREAM_BUFFERS, m_SAStreamBuffers);
 #endif
 	
 		alSourcei(alSources[id], AL_SOURCE_RELATIVE, AL_TRUE);
@@ -145,6 +146,9 @@ void CChannel::Term()
 	
 #ifdef USE_STEAMAUDIO
 		SA::sound_sources.erase(id);
+		StopStreamSA();
+		alDeleteBuffers(SA_STREAM_BUFFERS, m_SAStreamBuffers);
+		memset(m_SAStreamBuffers, 0, sizeof(m_SAStreamBuffers));
 #endif
 	}
 }
@@ -153,6 +157,17 @@ void CChannel::Start()
 {
 	if ( !HasSource() ) return;
 	if ( !Data ) return;
+
+#ifdef USE_STEAMAUDIO
+	// 3D channels use queue-based streaming so spatialization can be updated
+	// every frame with the current source/listener positions. Only 2D sounds
+	// keep the whole-buffer one-shot path below.
+	if ( !bIs2D )
+	{
+		StartStreamingSA();
+		return;
+	}
+#endif
 
 
 #ifdef USE_STEAMAUDIO
@@ -169,7 +184,7 @@ void CChannel::Start()
 		for (size_t i = 0; i < num_input_samples; ++i)
 			in_data[i] = src[i] / 32768.0f;
 
-		float upsample_ratio = 48000.0f / Frequency;
+		float upsample_ratio = SA::STEAM_AUDIO_SAMPLING_RATE / (float)Frequency;
 		size_t resampled_count = static_cast<size_t>(num_input_samples * upsample_ratio) + 1;
 		std::vector<float> resampled_data(resampled_count);
 		for (size_t i = 0; i < resampled_count; ++i)
@@ -186,7 +201,7 @@ void CChannel::Start()
 
 		float* output_stereo_buffer = static_cast<float*>(malloc(resampled_count * 2 * sizeof(float)));
 		auto& sound_source_item = SA::sound_sources[id];
-		sound_source_item.sample_rate = 48000;
+		sound_source_item.sample_rate = SA::STEAM_AUDIO_SAMPLING_RATE;
 		sound_source_item.channels = 1;
 		sound_source_item.data = resampled_data.data();
 		sound_source_item.ProcessSpatialAudio(output_stereo_buffer, resampled_count);
@@ -243,6 +258,156 @@ void CChannel::Stop()
 	
 	Reset();
 }
+
+#ifdef USE_STEAMAUDIO
+void CChannel::StartStreamingSA()
+{
+	// ???? there is fix a bug, don't remove !!!!
+	if (DataSize == 33492) {
+		return;
+	}
+
+	StopStreamSA();
+
+	const int16_t* src = static_cast<const int16_t*>(Data);
+	const size_t num_input_samples = DataSize / sizeof(int16_t);
+
+	// Resample the mono int16 input to the device rate float ONCE; the stream
+	// stays at this rate from here on so no further resampling is ever needed.
+	const float stream_rate = static_cast<float>(SA::STEAM_AUDIO_SAMPLING_RATE);
+	const float upsample_ratio = stream_rate / Frequency;
+	m_StreamTotal = static_cast<size_t>(num_input_samples * upsample_ratio) + 1;
+	m_StreamData.resize(m_StreamTotal);
+	for (size_t i = 0; i < m_StreamTotal; ++i)
+	{
+		float pos = i / upsample_ratio;
+		size_t idx = static_cast<size_t>(pos);
+		if (idx >= num_input_samples) idx = num_input_samples - 1;
+		float frac = pos - idx;
+		float s0 = src[idx] / 32768.0f;
+		float s1 = (idx + 1 < num_input_samples) ? src[idx + 1] / 32768.0f : s0;
+		m_StreamData[i] = s0 * (1.0f - frac) + s1 * frac;
+	}
+
+	// Loop points are given in samples at the original sample rate; convert
+	// them to stream frame indices.
+	m_StreamLoopStart = (LoopPoints[0] > 0)
+		? static_cast<size_t>(LoopPoints[0] * stream_rate / Frequency) : 0;
+	m_StreamLoopEnd = (LoopPoints[1] > 0)
+		? static_cast<size_t>(LoopPoints[1] * stream_rate / Frequency) : m_StreamTotal;
+	if (m_StreamLoopEnd > m_StreamTotal) m_StreamLoopEnd = m_StreamTotal;
+	if (m_StreamLoopStart >= m_StreamLoopEnd) m_StreamLoopStart = 0;
+
+	m_StreamCursor = 0;
+	m_SAStreamNext = 0;
+	m_SABlockScratch.resize(SA::STEAM_AUDIO_FRAME_SIZE * 2);
+	m_bStreaming = true;
+
+	// Looping is implemented by the feeder; the AL source must never use
+	// AL_LOOPING together with a buffer queue.
+	alSourcei(alSources[id], AL_LOOPING, AL_FALSE);
+
+	// Pre-fill the queue so playback can start immediately.
+	for (int i = 0; i < SA_STREAM_BUFFERS; ++i)
+		if (!QueueNextBlockSA()) break;
+
+	alSourcePlay(alSources[id]);
+}
+
+void CChannel::StopStreamSA()
+{
+	if (!m_bStreaming) return;
+	m_bStreaming = false;
+	if ( HasSource() )
+	{
+		ALint queued = 0;
+		alGetSourcei(alSources[id], AL_BUFFERS_QUEUED, &queued);
+		while (queued-- > 0)
+		{
+			ALuint buf;
+			alSourceUnqueueBuffers(alSources[id], 1, &buf);
+		}
+	}
+	m_StreamData.clear();
+	m_StreamData.shrink_to_fit();
+	m_StreamCursor = 0;
+}
+
+bool CChannel::QueueNextBlockSA()
+{
+	size_t avail = m_StreamLoopEnd - m_StreamCursor;
+	if (avail == 0)
+	{
+		// End of a pass. LoopCount semantics: 0 = loop forever,
+		// 1 = play once, N = play N passes in total.
+		if (LoopCount == 1) return false;
+		if (LoopCount > 1) {
+			LoopCount--;
+			// Keep the service refcount balanced with Reset()/SetLoopCount().
+			if (LoopCount == 1)
+				channelsThatNeedService--;
+		}
+		m_StreamCursor = m_StreamLoopStart;
+		avail = m_StreamLoopEnd - m_StreamCursor;
+		if (avail == 0) return false;
+	}
+
+	const size_t n = (avail < SA::STEAM_AUDIO_FRAME_SIZE)
+		? avail : static_cast<size_t>(SA::STEAM_AUDIO_FRAME_SIZE);
+
+	// Spatialize this block with the CURRENT position of the source; the
+	// listener state is refreshed globally every frame.
+	auto& sound_source_item = SA::sound_sources[id];
+	SA::SpatializeBlock(sound_source_item, m_StreamData.data() + m_StreamCursor, n,
+	                    m_SABlockScratch.data());
+
+	alBufferData(m_SAStreamBuffers[m_SAStreamNext], AL_FORMAT_STEREO16,
+	             m_SABlockScratch.data(), (ALsizei)(n * 2 * sizeof(int16_t)), SA::STEAM_AUDIO_SAMPLING_RATE);
+	alSourceQueueBuffers(alSources[id], 1, &m_SAStreamBuffers[m_SAStreamNext]);
+	m_SAStreamNext = (m_SAStreamNext + 1) % SA_STREAM_BUFFERS;
+	m_StreamCursor += n;
+	return true;
+}
+
+void CChannel::ServiceStream()
+{
+	if (!m_bStreaming) return;
+	if (!HasSource()) { m_bStreaming = false; return; }
+
+	// Recycle finished buffers.
+	ALint processed = 0;
+	alGetSourcei(alSources[id], AL_BUFFERS_PROCESSED, &processed);
+	while (processed-- > 0)
+	{
+		ALuint buf;
+		alSourceUnqueueBuffers(alSources[id], 1, &buf);
+	}
+
+	ALint queued = 0;
+	alGetSourcei(alSources[id], AL_BUFFERS_QUEUED, &queued);
+
+	ALint state = AL_STOPPED;
+	alGetSourcei(alSources[id], AL_SOURCE_STATE, &state);
+	if (queued == 0 && state != AL_PLAYING)
+	{
+		// Queue fully drained: the sound has finished playing.
+		m_bStreaming = false;
+		return;
+	}
+
+	bool queuedMore = false;
+	while (queued < SA_STREAM_BUFFERS)
+	{
+		if (!QueueNextBlockSA()) break;
+		++queued;
+		queuedMore = true;
+	}
+
+	// If a frame hitch starved the queue and stopped the source, resume.
+	if (queuedMore && state != AL_PLAYING)
+		alSourcePlay(alSources[id]);
+}
+#endif
 
 bool CChannel::HasSource()
 {
@@ -304,6 +469,16 @@ void CChannel::SetLoopCount(int32 count)
 	else if (LoopCount < 2 && count > 1)
 		channelsThatNeedService++;
 
+#ifdef USE_STEAMAUDIO
+	if (m_bStreaming)
+	{
+		// Streaming channels implement looping in the block feeder; the
+		// OpenAL source must never use AL_LOOPING with a buffer queue.
+		LoopCount = count;
+		return;
+	}
+#endif
+
 	alSourcei(alSources[id], AL_LOOPING, count == 1 ? AL_FALSE : AL_TRUE);
 	LoopCount = count;
 }
@@ -311,6 +486,11 @@ void CChannel::SetLoopCount(int32 count)
 bool CChannel::Update()
 {
 	if (!HasSource()) return false;
+#ifdef USE_STEAMAUDIO
+	// Streaming channels manage looping internally; skip the sample-offset
+	// bookkeeping which only applies to single-buffer looping sources.
+	if (m_bStreaming) return true;
+#endif
 	if (LoopCount < 2) return false;
 
 	ALint state;
@@ -393,6 +573,9 @@ void CChannel::ClearBuffer()
 {
 	if ( !HasSource() ) return;
 	alSourcei(alSources[id], AL_LOOPING, AL_FALSE);
+#ifdef USE_STEAMAUDIO
+	StopStreamSA();
+#endif
 	alSourcei(alSources[id], AL_BUFFER, AL_NONE);
 	Data = nil;
 	DataSize = 0;
